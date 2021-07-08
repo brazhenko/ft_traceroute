@@ -28,6 +28,7 @@ static uint16_t ipv4_icmp_checksum(const uint16_t *words, size_t word_count);
  *
  *  returns:    0 - success
  *              1 - error, errno will be set in a particular errcode
+ *
  */
 
 int send_icmp_msg_v4(

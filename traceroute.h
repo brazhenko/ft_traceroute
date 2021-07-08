@@ -3,16 +3,20 @@
 
 # include <stddef.h>
 # include <stdint.h>
+#include <netinet/in.h>
 
 typedef struct {
     int sock;
     uint64_t flags;
     const char *device;
+    in_addr_t dest_ip;
     int dest_port;
     int source_port;
     unsigned send_wait;
+    uint8_t current_ttl;
     uint8_t max_ttl;
     uint8_t tos;
+    int pack_len;
 } traceroute_context_t;
 
 extern traceroute_context_t g_tcrt_ctx;
@@ -31,6 +35,23 @@ extern traceroute_context_t g_tcrt_ctx;
 /* Value constants */
 # define DEFAULT_START_PORT 33434   /* Default start port */
 # define DEFAULT_PROBES_ONE_TTL 3
+
+
+#define SO_EE_ORIGIN_NONE    0
+#define SO_EE_ORIGIN_LOCAL   1
+#define SO_EE_ORIGIN_ICMP    2
+#define SO_EE_ORIGIN_ICMP6   3
+
+struct sock_extended_err {
+    uint32_t ee_errno;   /* error number */
+    uint8_t  ee_origin;  /* where the error originated */
+    uint8_t  ee_type;    /* type */
+    uint8_t  ee_code;    /* code */
+    uint8_t  ee_pad;
+    uint32_t ee_info;    /* additional information */
+    uint32_t ee_data;    /* other data */
+    /* More data may follow */
+};
 
 
 

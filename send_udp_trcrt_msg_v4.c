@@ -23,6 +23,7 @@
  *
  *  returns:    0 - success
  *              1 - error, errno will be set in a particular errcode
+ *
  */
 
 int send_udp_trcrt_msg(

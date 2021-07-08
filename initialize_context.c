@@ -13,6 +13,8 @@ static void dump_usage(const char *bin_name);
 static void dump_version();
 static void set_default_args();
 static void initialiaze_sockets();
+int get_ipaddr_by_name(const char *name, in_addr_t *out,
+        char *canon_name, size_t canon_name_size);
 
 /*
  * Function: initialize_context()
@@ -24,7 +26,7 @@ static void initialiaze_sockets();
  *
  *  argv - argument vector
  *
- *  returns:    no return
+ *  returns: no return
  *
  */
 
@@ -105,9 +107,21 @@ void initialize_context(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
+    // Prepare dest IP address
+    in_addr_t dest;
+    int ret = get_ipaddr_by_name(argv[optind], &dest, NULL, 0);
+    if (ret) {
+        fprintf(stderr, "%s: %s\n", argv[0], gai_strerror(ret));
+        exit(EXIT_FAILURE);
+    }
+
+    // Get packetlen if exists
+    if (optind + 1 < argc) {
+        g_tcrt_ctx.pack_len = atoi(argv[optind + 1]);
+    }
 
     for (int i = optind; i < argc; i++) {
-        printf("%s\n", argv[optind]);
+        printf("%s\n", argv[i]);
     }
 
     initialiaze_sockets();
@@ -117,7 +131,7 @@ static void initialiaze_sockets() {
     int sock = -1;
 
     if (g_tcrt_ctx.flags & TRCRT_ICMP)
-        sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+        sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);\
     else if (g_tcrt_ctx.flags & TRCRT_TCP)
         ;
     else
@@ -133,53 +147,53 @@ static void initialiaze_sockets() {
 
 static void dump_usage(const char *bin_name) {
     fprintf(stderr,
-            "Usage:\n"
-            "%s "
-            "[ -hIT ] "
-            "[ -i device ] "
-            "[ -p port ] "
-            "[ -z sendwait ] "
-            "[ -m max_ttl ] "
-            "[ -s src_addr ] "
-            "[ -t tos ] "
-            "host "
-            "[ packetlen ]\n"
-            "Options:\n"
-            "  -f first_ttl  --first=first_ttl\n"
-            "                              Start from the first_ttl hop (instead from 1)\n"
-            "  -I  --icmp                  Use ICMP ECHO for tracerouting\n"
-            "  -T  --tcp                   Use TCP SYN for tracerouting (default port is 80)\n"
-            "  -i device  --interface=device\n"
-            "                              Specify a network interface to operate with\n"
-            "  -m max_ttl  --max-hops=max_ttl\n"
-            "                              Set the max number of hops (max TTL to be\n"
-            "                              reached). Default is 30\n"
-            "  -p port  --port=port        Set the destination port to use. It is either\n"
-            "                              initial udp port value for \"default\" method\n"
-            "                              (incremented by each probe, default is 33434), or\n"
-            "                              initial seq for \"icmp\" (incremented as well,\n"
-            "                              default from 1), or some constant destination\n"
-            "                              port for other methods (with default of 80 for\n"
-            "                              \"tcp\", 53 for \"udp\", etc.)\n"
-            "  -t tos  --tos=tos           Set the TOS (IPv4 type of service) or TC (IPv6\n"
-            "                              traffic class) value for outgoing packets\n"
-            "  -s src_addr  --source=src_addr\n"
-            "                              Use source src_addr for outgoing packets\n"
-            "  -z sendwait  --sendwait=sendwait\n"
-            "                              Minimal time interval between probes (default 0).\n"
-            "                              If the value is more than 10, then it specifies a\n"
-            "                              number in milliseconds, else it is a number of\n"
-            "                              seconds (float point values allowed too)\n"
-            "  --sport=num                 Use source port num for outgoing packets. Implies\n"
-            "                              `-N 1'\n"
-            "  -V  --version               Print version info and exit\n"
-            "  -h  --help                  Read this help and exit\n"
-            "\n"
-            "Arguments:\n"
-            "+     host          The host to traceroute to\n"
-            "      packetlen     The full packet length (default is the length of an IP\n"
-            "                    header plus 40). Can be ignored or increased to a minimal\n"
-            "                    allowed value", bin_name);
+    "Usage:\n"
+    "%s "
+    "[ -hIT ] "
+    "[ -i device ] "
+    "[ -p port ] "
+    "[ -z sendwait ] "
+    "[ -m max_ttl ] "
+    "[ -s src_addr ] "
+    "[ -t tos ] "
+    "host "
+    "[ packetlen ]\n"
+    "Options:\n"
+    "  -f first_ttl  --first=first_ttl\n"
+    "                              Start from the first_ttl hop (instead from 1)\n"
+    "  -I  --icmp                  Use ICMP ECHO for tracerouting\n"
+    "  -T  --tcp                   Use TCP SYN for tracerouting (default port is 80)\n"
+    "  -i device  --interface=device\n"
+    "                              Specify a network interface to operate with\n"
+    "  -m max_ttl  --max-hops=max_ttl\n"
+    "                              Set the max number of hops (max TTL to be\n"
+    "                              reached). Default is 30\n"
+    "  -p port  --port=port        Set the destination port to use. It is either\n"
+    "                              initial udp port value for \"default\" method\n"
+    "                              (incremented by each probe, default is 33434), or\n"
+    "                              initial seq for \"icmp\" (incremented as well,\n"
+    "                              default from 1), or some constant destination\n"
+    "                              port for other methods (with default of 80 for\n"
+    "                              \"tcp\", 53 for \"udp\", etc.)\n"
+    "  -t tos  --tos=tos           Set the TOS (IPv4 type of service) or TC (IPv6\n"
+    "                              traffic class) value for outgoing packets\n"
+    "  -s src_addr  --source=src_addr\n"
+    "                              Use source src_addr for outgoing packets\n"
+    "  -z sendwait  --sendwait=sendwait\n"
+    "                              Minimal time interval between probes (default 0).\n"
+    "                              If the value is more than 10, then it specifies a\n"
+    "                              number in milliseconds, else it is a number of\n"
+    "                              seconds (float point values allowed too)\n"
+    "  --sport=num                 Use source port num for outgoing packets. Implies\n"
+    "                              `-N 1'\n"
+    "  -V  --version               Print version info and exit\n"
+    "  -h  --help                  Read this help and exit\n"
+    "\n"
+    "Arguments:\n"
+    "+     host          The host to traceroute to\n"
+    "      packetlen     The full packet length (default is the length of an IP\n"
+    "                    header plus 40). Can be ignored or increased to a minimal\n"
+    "                    allowed value", bin_name);
 }
 
 static void set_default_args() {
@@ -188,6 +202,7 @@ static void set_default_args() {
     g_tcrt_ctx.dest_port = DEFAULT_START_PORT;
     g_tcrt_ctx.send_wait = 0;
     g_tcrt_ctx.max_ttl = 255; /* Max possible ttl */
+    g_tcrt_ctx.current_ttl = 1;
 }
 
 static void dump_version() {
