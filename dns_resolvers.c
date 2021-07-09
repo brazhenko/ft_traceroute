@@ -1,6 +1,7 @@
 #include <netinet/in.h>
 #include <string.h>
 #include <netdb.h>
+#include <stdbool.h>
 
 /*
  *  Functions: get_ipaddr_by_name(), get_name_by_ipaddr()
@@ -57,7 +58,7 @@ int get_ipaddr_by_name(const char *name, in_addr_t *out,
 /*
  * Function: get_name_by_ipaddr()
  * ------------------------------
- *  Resolve a hostname by IPv4. Caches up to 10 results.
+ *  Resolve a hostname by IPv4. Caches up to 30 results.
  *
  *  ip - input IPv4 address
  *
@@ -71,18 +72,22 @@ int get_ipaddr_by_name(const char *name, in_addr_t *out,
  *
  */
 
-int get_name_by_ipaddr(in_addr_t ip, char *host, size_t host_len) {
+int get_name_by_ipaddr(in_addr_t ip, char *host,
+        size_t host_len, bool *in_cache) {
     struct help {
         in_addr_t addr;
         char      hostname[NI_MAXHOST];
     };
-    static struct help storage[10] = { 0 }; /* No lru, man, no lru */
+    static struct help storage[30] = { 0 }; /* No lru, man, no lru */
     static int count = 0;
 
     // Lookup in cache
     for (int i = 0; i < count; i++) {
         if (storage[i].addr == ip) {
             // Found in cache
+            if (in_cache) {
+                *in_cache = true;
+            }
             strncpy(host, storage[i].hostname, host_len);
             return 0;
         }
@@ -104,7 +109,8 @@ int get_name_by_ipaddr(in_addr_t ip, char *host, size_t host_len) {
     }
 
     // Append to cache
-    if (count < 10) {
+    *in_cache = false;
+    if (count < 30) {
         storage[count].addr = ip;
         strncpy(storage[count].hostname, host, NI_MAXHOST);
         count++;

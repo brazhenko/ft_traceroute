@@ -9,23 +9,30 @@
 #include <asm-generic/errno.h>
 #include <errno.h>
 #include <netinet/ip_icmp.h>
+#include <sys/time.h>
 #include "traceroute.h"
+#include <arpa/inet.h>
 
 
 /*
  * Prototypes
  *
  */
+
 static void trcrt_send();
 static void trcrt_receive();
+static void trcrt_handle_icmp(struct msghdr *msg);
+static void trcrt_handle_udp(struct msghdr *msg);
 static void trcrt_print_result();
+
 
 int send_icmp_msg_v4(int sock, uint16_t id, uint8_t ttl, uint8_t icmp_type,
         uint16_t icmp_seq_num, size_t payload_size, in_addr_t source_ip,
         in_addr_t dest_ip, uint8_t tos);
 int send_udp_trcrt_msg(int udp_sock, uint8_t ttl, size_t payload_size,
         in_addr_t dest_ip, in_port_t dest_port, uint8_t tos);
-
+int get_name_by_ipaddr(in_addr_t ip, char *host,
+        size_t host_len, bool *in_cache);
 
 /*
  * Main logic
@@ -34,9 +41,10 @@ int send_udp_trcrt_msg(int udp_sock, uint8_t ttl, size_t payload_size,
 
 void process_trace() {
 
-    for (; g_tcrt_ctx.current_ttl < g_tcrt_ctx.max_ttl; g_tcrt_ctx.current_ttl++) {
-        printf("------- %d ------\n", g_tcrt_ctx.current_ttl);
-        for (int i = 0; i < DEFAULT_PROBES_ONE_TTL; i++) {
+    for (int i = 0; g_tcrt_ctx.current_ttl < g_tcrt_ctx.max_ttl; g_tcrt_ctx.current_ttl++, i++) {
+        printf("%2d  ", i);
+        for (int j = 0; j < DEFAULT_PROBES_ONE_TTL; j++) {
+
             trcrt_send();
             trcrt_receive();
             trcrt_print_result();
@@ -44,6 +52,7 @@ void process_trace() {
             sleep(g_tcrt_ctx.send_wait);
             g_tcrt_ctx.dest_port++;
         }
+        printf("\n");
 
         if (g_tcrt_ctx.rc == HAVEANSWER) break;
     }
@@ -74,7 +83,6 @@ static void trcrt_send() {
                 g_tcrt_ctx.dest_ip,
                 g_tcrt_ctx.dest_port,
                 g_tcrt_ctx.tos);
-        printf("kek\n");
     }
 
     if (ret != 0) {
@@ -82,13 +90,15 @@ static void trcrt_send() {
         exit(EXIT_FAILURE);
     }
 
+    ret = gettimeofday(&g_tcrt_ctx.time_sent, NULL);
+    if (ret != 0) {
+        perror("cannot set time");
+        exit(EXIT_FAILURE);
+    }
 }
 
 static void trcrt_receive() {
-    char    output[1024], ip_buffer[64], host_name[NI_MAXHOST], buffer[2048], buffer2[1024];
-    struct cmsghdr *cmsg;
-    struct sock_extended_err *sock_err;
-    struct timeval  current_time, send_time;
+    char   buffer[2048];
     struct iovec   iov[1];
     struct msghdr  msg;
     ssize_t ret = 0;
@@ -101,98 +111,15 @@ static void trcrt_receive() {
     msg.msg_iov     = iov;
     msg.msg_iovlen  = 1;
 
-
     alarm(3);
 
     if (g_tcrt_ctx.flags & TRCRT_ICMP) {
-        ret = recvmsg(g_tcrt_ctx.sock, &msg, 0);
-
-        if (ret > 0) {
-            struct iphdr* ip = (struct iphdr *)buffer;
-            struct icmphdr* icmp = (struct icmphdr*)(buffer + sizeof (struct iphdr));
-            g_tcrt_ctx.answer_ip = ip->saddr;
-            if (icmp->type == ICMP_ECHOREPLY) {
-                g_tcrt_ctx.rc = HAVEANSWER;
-            }
-            else if (icmp->type == ICMP_TIME_EXCEEDED) {
-                g_tcrt_ctx.rc = TTLEXCEEDED;
-            }
-            else {
-                g_tcrt_ctx.rc = UNKNOWN;
-            }
-            printf("icmp: %d\n", icmp->type);
-            return;
-        }
-        if (ret == 0) {
-            fprintf(stderr, "Connection closed\n");
-            exit(EXIT_FAILURE);
-        }
-        if (errno == EINTR) {
-            g_tcrt_ctx.rc = NOANSWER;
-            printf("no answer\n");
-            return;
-        }
-
-        perror("cannot receive message");
-        exit(EXIT_FAILURE);
+        trcrt_handle_icmp(&msg);
     }
     else if (g_tcrt_ctx.flags & TRCRT_TCP)
         ;
-    else {
-        while (true) {
-            int on = 1;
-            ret = setsockopt(g_tcrt_ctx.sock, SOL_IP, IP_RECVERR, (char *)&on, sizeof(on));
-            if (ret != 0) {
-                perror("shit");
-                exit(EXIT_FAILURE);
-            }
-            struct sockaddr_in remote;              /* Our socket */
-            msg.msg_name = (void *)&remote;
-            msg.msg_namelen = sizeof(remote);
-            msg.msg_flags = 0;
-            msg.msg_control = buffer2;
-            msg.msg_controllen = sizeof(buffer2);
-
-            ret = recvmsg(g_tcrt_ctx.sock, &msg, MSG_ERRQUEUE);
-//            printf("%d %d %s\n", ret, errno, strerror(errno));
-
-            if (errno == EINTR) {
-                printf("interrupted\n");
-                return;
-            }
-
-            if (ret < 0) continue; // try again
-
-            printf("Hello\n");
-
-            cmsg = CMSG_FIRSTHDR(&msg);
-            if (!cmsg) {
-                return;
-            }
-            if (cmsg->cmsg_level == SOL_IP
-                && cmsg->cmsg_type == IP_RECVERR) {
-                sock_err = (struct sock_extended_err *)CMSG_DATA(cmsg);
-                if (!sock_err) return;
-
-                switch (sock_err->ee_type)
-                {
-                case ICMP_NET_UNREACH:
-                    fprintf(stderr, "Network Unreachable Error\n");
-                    break;
-                case ICMP_HOST_UNREACH:
-                    fprintf(stderr, "Host Unreachable Error\n");
-                    break;
-                    /* Handle all other cases. Find more errors :
-                     * http://lxr.linux.no/linux+v3.5/include/linux/icmp.h#L39
-                     */
-                }
-
-                printf("rettype: %d\n", sock_err->ee_type);
-            }
-
-            break;
-        }
-    }
+    else
+        trcrt_handle_udp(&msg);
 
     if (ret < 0) {
         perror("cannot create socket");
@@ -200,6 +127,130 @@ static void trcrt_receive() {
     }
 }
 
-static void trcrt_print_result() {
+static void trcrt_handle_icmp(struct msghdr *msg) {
+    ssize_t ret;
+    struct icmphdr* icmp;
+    struct iphdr* ip;
 
+    ret = recvmsg(g_tcrt_ctx.sock, msg, 0);
+
+    if (ret > 0) {
+        ip = (struct iphdr *)msg->msg_iov->iov_base;
+        icmp = (struct icmphdr*)(msg->msg_iov->iov_base + sizeof (struct iphdr));
+        g_tcrt_ctx.answer_ip = ip->saddr;
+
+        switch (icmp->type)
+        {
+        case ICMP_ECHOREPLY:
+            g_tcrt_ctx.rc = HAVEANSWER;
+            break;
+        case ICMP_TIME_EXCEEDED:
+            g_tcrt_ctx.rc = TTLEXCEEDED;
+            break;
+        default:
+            g_tcrt_ctx.rc = UNKNOWN;
+        }
+
+//        printf("icmp: %d\n", icmp->type);
+        return;
+    }
+    if (ret == 0) {
+        fprintf(stderr, "Connection closed\n");
+        exit(EXIT_FAILURE);
+    }
+    if (errno == EINTR) {
+        g_tcrt_ctx.rc = NOANSWER;
+        printf("no answer\n");
+        return;
+    }
+
+    perror("cannot receive message");
+    exit(EXIT_FAILURE);
+}
+
+static void trcrt_handle_udp(struct msghdr *msg) {
+    char    output[1024], ip_buffer[64], host_name[NI_MAXHOST], buffer[2048], buffer2[1024];
+    struct cmsghdr *cmsg;
+    struct sock_extended_err *sock_err;
+    struct timeval  current_time, send_time;
+    ssize_t ret;
+
+    while (true) {
+        ret = setsockopt(g_tcrt_ctx.sock, SOL_IP, IP_RECVERR, (int[1]){ 1 }, sizeof(int));
+        if (ret != 0) {
+            perror("shit");
+            exit(EXIT_FAILURE);
+        }
+
+        struct sockaddr_in remote;              /* Our socket */
+        msg->msg_name = (void *)&remote;
+        msg->msg_namelen = sizeof(remote);
+        msg->msg_flags = 0;
+        msg->msg_control = buffer2;
+        msg->msg_controllen = sizeof(buffer2);
+
+        ret = recvmsg(g_tcrt_ctx.sock, msg, MSG_ERRQUEUE);
+//            printf("%d %d %s\n", ret, errno, strerror(errno));
+
+        if (errno == EINTR) {
+            printf("interrupted\n");
+            return;
+        }
+
+        if (ret < 0) continue; // try again
+
+        printf("Hello\n");
+
+        cmsg = CMSG_FIRSTHDR(msg);
+        if (!cmsg) {
+            return;
+        }
+        if (cmsg->cmsg_level == SOL_IP
+                && cmsg->cmsg_type == IP_RECVERR) {
+            sock_err = (struct sock_extended_err *)CMSG_DATA(cmsg);
+            if (!sock_err) return;
+
+            switch (sock_err->ee_type)
+            {
+            case ICMP_NET_UNREACH:
+                fprintf(stderr, "Network Unreachable Error\n");
+                break;
+            case ICMP_HOST_UNREACH:
+                fprintf(stderr, "Host Unreachable Error\n");
+                break;
+                /* Handle all other cases. Find more errors :
+                 * http://lxr.linux.no/linux+v3.5/include/linux/icmp.h#L39
+                 */
+            }
+
+            printf("rettype: %d\n", sock_err->ee_type);
+        }
+
+        break;
+    }
+}
+
+static void trcrt_print_result() {
+    char hostname[NI_MAXHOST] = { 0 };
+    bool in_cache;
+
+    get_name_by_ipaddr(g_tcrt_ctx.answer_ip, hostname, sizeof hostname, &in_cache);
+
+    if (!in_cache) {
+        printf("%s ", hostname);
+        printf("(%s)  ", inet_ntoa((struct in_addr){g_tcrt_ctx.answer_ip}));
+    }
+
+    switch (g_tcrt_ctx.rc)
+    {
+    case HAVEANSWER:
+        printf("_time_  ");
+        break;
+    case TTLEXCEEDED:
+        printf("_ttl_  ");
+        break;
+    default:
+        printf("*  ");
+        break;
+    }
 }

@@ -162,7 +162,7 @@ static void initialize_sockets() {
     g_tcrt_ctx.sock = sock;
 }
 
-void f(int a){
+void f(int a) {
     printf("alarm\n");
 }
 

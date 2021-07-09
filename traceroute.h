@@ -29,6 +29,7 @@ typedef struct {
     uint16_t dest_port;
     enum ret_code rc;
     in_addr_t answer_ip;
+    struct timeval time_sent;
 
 } traceroute_context_t;
 
