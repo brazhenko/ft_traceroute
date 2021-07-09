@@ -31,7 +31,8 @@ int send_udp_trcrt_msg(
         uint8_t ttl,
         size_t payload_size,
         in_addr_t dest_ip,
-        in_port_t dest_port
+        in_port_t dest_port,
+        uint8_t tos
 ) {
     ssize_t ret;
     // Prepare destination
@@ -43,6 +44,10 @@ int send_udp_trcrt_msg(
 
     // Set TTL
     if (setsockopt(udp_sock, IPPROTO_IP, IP_TTL, &ttl, sizeof ttl) != 0) {
+        return 1;
+    }
+    // Set TOS
+    if (setsockopt(udp_sock, IPPROTO_IP, IP_TOS, &tos, sizeof tos) != 0) {
         return 1;
     }
 

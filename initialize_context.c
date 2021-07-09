@@ -7,13 +7,16 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <signal.h>
 
 traceroute_context_t g_tcrt_ctx;
 
 static void dump_usage(const char *bin_name);
 static void dump_version();
 static void set_default_args();
-static void initialiaze_sockets();
+static void initialize_sockets();
+static void initialize_signals();
+
 int get_ipaddr_by_name(const char *name, in_addr_t *out,
         char *canon_name, size_t canon_name_size);
 
@@ -98,12 +101,12 @@ void initialize_context(int argc, char **argv) {
     }
 
     if (optind == argc) {
-        fprintf(stderr, "Specify \"host\" missing argument.");
+        fprintf(stderr, "Specify \"host\" missing argument.\n");
         exit(EXIT_FAILURE);
     }
 
     if (optind + 2 < argc) {
-        fprintf(stderr, "Extra arg `%s' (position %d, argc %d)",
+        fprintf(stderr, "Extra arg `%s' (position %d, argc %d)\n",
                 argv[optind + 2], optind + 2, argc - 1);
         exit(EXIT_FAILURE);
     }
@@ -124,10 +127,11 @@ void initialize_context(int argc, char **argv) {
         printf("%s\n", argv[i]);
     }
 
-    initialiaze_sockets();
+    initialize_sockets();
+    initialize_signals();
 }
 
-static void initialiaze_sockets() {
+static void initialize_sockets() {
     int sock = -1, setsock = -1;
 
     if (g_tcrt_ctx.flags & TRCRT_ICMP)
@@ -156,6 +160,18 @@ static void initialiaze_sockets() {
     }
 
     g_tcrt_ctx.sock = sock;
+}
+
+void f(int a){
+    printf("alarm\n");
+}
+
+static void initialize_signals() {
+    struct sigaction sa;
+    memset(&sa, 0x0, sizeof sa);
+    sa.sa_handler = f;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGALRM, &sa, NULL);
 }
 
 static void dump_usage(const char *bin_name) {

@@ -22,10 +22,15 @@ static void trcrt_print_result();
 
 int send_icmp_msg_v4(int sock, uint16_t id, uint8_t ttl, uint8_t icmp_type,
         uint16_t icmp_seq_num, size_t payload_size, in_addr_t source_ip,
-        in_addr_t dest_ip);
+        in_addr_t dest_ip, uint8_t tos);
 int send_udp_trcrt_msg(int udp_sock, uint8_t ttl, size_t payload_size,
-        in_addr_t dest_ip, in_port_t dest_port);
+        in_addr_t dest_ip, in_port_t dest_port, uint8_t tos);
 
+
+/*
+ * Main logic
+ *
+ */
 
 void process_trace() {
 
@@ -42,8 +47,6 @@ void process_trace() {
     }
 }
 
-
-
 static void trcrt_send() {
     int ret = 0;
 
@@ -56,7 +59,8 @@ static void trcrt_send() {
                 0x42,
                 30,
                 g_tcrt_ctx.source_ip, // TODO fix for source
-                g_tcrt_ctx.dest_ip);
+                g_tcrt_ctx.dest_ip,
+                g_tcrt_ctx.tos);
     }
     else if (g_tcrt_ctx.flags & TRCRT_TCP)
         ;
@@ -66,7 +70,8 @@ static void trcrt_send() {
                 g_tcrt_ctx.current_ttl,
                 30, // TODO FIX
                 g_tcrt_ctx.dest_ip,
-                g_tcrt_ctx.dest_port);
+                g_tcrt_ctx.dest_port,
+                g_tcrt_ctx.tos);
         printf("kek\n");
     }
 
@@ -99,6 +104,7 @@ static void trcrt_receive() {
 
     if (g_tcrt_ctx.flags & TRCRT_ICMP) {
         ret = recvmsg(g_tcrt_ctx.sock, &msg, 0);
+
         if (ret > 0) {
             struct iphdr* ip = (struct iphdr *)buffer;
             struct icmphdr* icmp = (struct icmphdr*)(buffer + sizeof (struct iphdr));

@@ -65,9 +65,6 @@ struct sock_extended_err {
     /* More data may follow */
 };
 
-
-
-
 void initialize_context(int argc, char **argv);
 
 #endif

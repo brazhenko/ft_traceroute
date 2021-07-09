@@ -39,7 +39,8 @@ int send_icmp_msg_v4(
         uint16_t icmp_seq_num,
         size_t payload_size,
         in_addr_t source_ip,
-        in_addr_t dest_ip
+        in_addr_t dest_ip,
+        uint8_t tos
 ) {
     static const size_t ip_hdr_size = sizeof (struct iphdr) /* =20 */
     , icmp_hdr_size = sizeof (struct icmphdr); /* =8 */
@@ -54,7 +55,7 @@ int send_icmp_msg_v4(
     struct ip *ip_header = (struct ip *)message;
     ip_header->ip_v = 4;
     ip_header->ip_hl = 5;
-    ip_header->ip_tos = 0;
+    ip_header->ip_tos = tos;
     ip_header->ip_len = htons(entire_msg_size);
     ip_header->ip_id = id;
     ip_header->ip_off = 0;
