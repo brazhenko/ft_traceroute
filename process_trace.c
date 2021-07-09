@@ -40,7 +40,9 @@ void process_trace() {
             trcrt_send();
             trcrt_receive();
             trcrt_print_result();
+
             sleep(g_tcrt_ctx.send_wait);
+            g_tcrt_ctx.dest_port++;
         }
 
         if (g_tcrt_ctx.rc == HAVEANSWER) break;
@@ -55,8 +57,8 @@ static void trcrt_send() {
                 g_tcrt_ctx.sock,
                 getpid(),
                 g_tcrt_ctx.current_ttl,
-                ICMP_ECHO, // TODO lookup code
-                0x42,
+                ICMP_ECHO,
+                g_tcrt_ctx.dest_port /* according to man */,
                 30,
                 g_tcrt_ctx.source_ip, // TODO fix for source
                 g_tcrt_ctx.dest_ip,

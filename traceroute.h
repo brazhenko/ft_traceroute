@@ -18,17 +18,18 @@ typedef struct {
     uint64_t flags;
     const char *device;
     in_addr_t dest_ip;
-    int dest_port;
     in_addr_t source_ip;
-    int source_port;
+    uint16_t source_port;
     unsigned send_wait;
     uint8_t max_ttl;
     uint8_t tos;
     int pack_len;
     // Dynamic data
     uint8_t current_ttl;
+    uint16_t dest_port;
     enum ret_code rc;
     in_addr_t answer_ip;
+
 } traceroute_context_t;
 
 extern traceroute_context_t g_tcrt_ctx;

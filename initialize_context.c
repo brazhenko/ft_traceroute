@@ -228,7 +228,11 @@ static void dump_usage(const char *bin_name) {
 static void set_default_args() {
     memset(&g_tcrt_ctx, 0x0, sizeof g_tcrt_ctx);
 
-    g_tcrt_ctx.dest_port = DEFAULT_START_PORT;
+    if (g_tcrt_ctx.flags & TRCRT_ICMP)
+        g_tcrt_ctx.dest_port = 1; /* sequence id */
+    else
+        g_tcrt_ctx.dest_port = DEFAULT_START_PORT;
+
     g_tcrt_ctx.send_wait = 0;
     g_tcrt_ctx.max_ttl = 255; /* Max possible ttl */
     g_tcrt_ctx.current_ttl = 1;
