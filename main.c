@@ -38,20 +38,22 @@ void process_trace();
 
 int main(int ac, char **av)
 {
-    initialize_context(ac, av);
+    struct sigaction sa;
+    sa.sa_handler = f;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGALRM, &sa, NULL);
 
+
+    initialize_context(ac, av);
     process_trace();
+
+    return 0;
 
     in_addr_t addr;
 //    int ret = get_ipaddr_by_name("ya.ru", &addr, NULL, 0);
     addr = 4076534359; // ya.ru
 
 
-    struct sigaction sa;
-
-    sa.sa_handler = f;
-    sigemptyset(&sa.sa_mask);
-    sigaction(SIGALRM, &sa, NULL);
 
     send_udp_trcrt_msg(g_tcrt_ctx.sock, 5, 32, addr, 33434);
 
@@ -74,9 +76,13 @@ int main(int ac, char **av)
         iov.iov_len = sizeof(icmph);
         msg.msg_name = (void *)&remote;
         msg.msg_namelen = sizeof(remote);
+
+
         msg.msg_iov = &iov;
         msg.msg_iovlen = 1;
         msg.msg_flags = 0;
+
+
         msg.msg_control = buffer;
         msg.msg_controllen = sizeof(buffer);
         /* Receiving errors flog is set */
@@ -126,3 +132,20 @@ int main(int ac, char **av)
 
 
 }
+
+
+//char arr[] = "\x45\x00\x00\x3c\x89\x74\x00\x00\x01\x01\x31\x4d\xac\x11\x00\x02\n"
+//             "\x57\xfa\xfa\xf2\x08\x00\x82\x30\x00\x49\x00\x01\x48\x49\x4a\x4b\n"
+//             "\x4c\x4d\x4e\x4f\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5a\x5b\n"
+//             "\x5c\x5d\x5e\x5f\x60\x61\x62\x63\x64\x65\x66\x67";
+//struct iphdr* ip = arr;
+//struct icmphdr *icmp = arr + sizeof (struct iphdr);
+//
+//char arr2[] = "\x45\x00\x00\x4e\x97\x2c\x40\x00\x40\x01\xa4\x82\xac\x11\x00\x02"
+//              "\x57\xfa\xfa\xf2\x45\x00\x00\x3a\x12\x01\x00\x00\x01\x01\xa8\xc4"
+//              "\x57\xfa\xfa\xf2\x57\xfa\xfa\xf2\x08\x00\x2b\xdf\x01\x12\x00\x42"
+//              "\xcf\x06\xe8\x60\x00\x00\x00\x00\x3b\x95\x08\x00\x00\x00\x00\x00"
+//              "\x42\x42\x42\x42\x42\x42\x42\x42\x42\x42\x42\x42\x42\x42";
+//
+//struct iphdr* ip2 = arr2;
+//struct icmphdr *icmp2 = arr2 + sizeof (struct iphdr);

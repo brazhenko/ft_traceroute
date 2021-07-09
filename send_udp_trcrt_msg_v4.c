@@ -33,6 +33,7 @@ int send_udp_trcrt_msg(
         in_addr_t dest_ip,
         in_port_t dest_port
 ) {
+    ssize_t ret;
     // Prepare destination
     struct sockaddr_in dest;
     memset(&dest, 0, sizeof dest);
@@ -48,8 +49,9 @@ int send_udp_trcrt_msg(
     // Prepare send buffer
     char    buffer[payload_size];
     memset(buffer, 0x42, payload_size);
-    if (sendto(udp_sock, buffer, payload_size, 0,
-                (struct sockaddr*)&dest, sizeof(struct sockaddr_in)) != 0) {
+    ret = sendto(udp_sock, buffer, payload_size, 0,
+            (struct sockaddr*)&dest, sizeof(struct sockaddr_in));
+    if (ret == -1) {
         return 1;
     }
 

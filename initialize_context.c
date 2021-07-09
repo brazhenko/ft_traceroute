@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <unistd.h>
 
 traceroute_context_t g_tcrt_ctx;
 
@@ -46,7 +47,7 @@ void initialize_context(int argc, char **argv) {
         { "tos",        required_argument,  NULL,   't' },
         { "sport",      required_argument,  NULL,    1  },
         { "version",    required_argument,  NULL,   'V' },
-        { NULL,         0,          NULL,    0  }
+        { NULL,         0,                  NULL,    0  }
     };
 
     int ch;
@@ -108,8 +109,7 @@ void initialize_context(int argc, char **argv) {
     }
 
     // Prepare dest IP address
-    in_addr_t dest;
-    int ret = get_ipaddr_by_name(argv[optind], &dest, NULL, 0);
+    int ret = get_ipaddr_by_name(argv[optind], &g_tcrt_ctx.dest_ip, NULL, 0);
     if (ret) {
         fprintf(stderr, "%s: %s\n", argv[0], gai_strerror(ret));
         exit(EXIT_FAILURE);
@@ -128,10 +128,10 @@ void initialize_context(int argc, char **argv) {
 }
 
 static void initialiaze_sockets() {
-    int sock = -1;
+    int sock = -1, setsock = -1;
 
     if (g_tcrt_ctx.flags & TRCRT_ICMP)
-        sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);\
+        sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     else if (g_tcrt_ctx.flags & TRCRT_TCP)
         ;
     else
@@ -139,6 +139,19 @@ static void initialiaze_sockets() {
 
     if (sock < 0) {
         perror("cannot create socket");
+        exit(EXIT_FAILURE);
+    }
+
+    if (g_tcrt_ctx.flags & TRCRT_ICMP)
+        setsock = setsockopt(sock, IPPROTO_IP, IP_HDRINCL, (int[1]){1}, sizeof(int));
+    else if (g_tcrt_ctx.flags & TRCRT_TCP)
+        ;
+    else
+        ;
+
+    if (setsock < 0) {
+        perror("cannot set sock option");
+        close(sock);
         exit(EXIT_FAILURE);
     }
 

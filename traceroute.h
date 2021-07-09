@@ -3,7 +3,15 @@
 
 # include <stddef.h>
 # include <stdint.h>
-#include <netinet/in.h>
+# include <netinet/in.h>
+
+enum ret_code {
+    NOANSWER=1,
+    HAVEANSWER,
+    TTLEXCEEDED,
+    LOST,
+    UNKNOWN
+};
 
 typedef struct {
     int sock;
@@ -11,12 +19,16 @@ typedef struct {
     const char *device;
     in_addr_t dest_ip;
     int dest_port;
+    in_addr_t source_ip;
     int source_port;
     unsigned send_wait;
-    uint8_t current_ttl;
     uint8_t max_ttl;
     uint8_t tos;
     int pack_len;
+    // Dynamic data
+    uint8_t current_ttl;
+    enum ret_code rc;
+    in_addr_t answer_ip;
 } traceroute_context_t;
 
 extern traceroute_context_t g_tcrt_ctx;
