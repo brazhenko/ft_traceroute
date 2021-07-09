@@ -30,6 +30,7 @@ typedef struct {
     enum ret_code rc;
     in_addr_t answer_ip;
     struct timeval time_sent;
+    int try_read;
 
 } traceroute_context_t;
 
@@ -45,6 +46,7 @@ extern traceroute_context_t g_tcrt_ctx;
 # define TRCRT_SOURCE_IP 0x40
 # define TRCRT_TOS 0x80         /* Set type of service */
 # define TRCRT_SOURCEPORT 0x100 /* Source port enabled */
+# define TRCRT_FIRST_TTL 0x200 /* First ttl enabled (default 1) */
 
 /* Value constants */
 # define DEFAULT_START_PORT 33434   /* Default start port */
@@ -56,16 +58,17 @@ extern traceroute_context_t g_tcrt_ctx;
 #define SO_EE_ORIGIN_ICMP    2
 #define SO_EE_ORIGIN_ICMP6   3
 
-struct sock_extended_err {
-    uint32_t ee_errno;   /* error number */
-    uint8_t  ee_origin;  /* where the error originated */
-    uint8_t  ee_type;    /* type */
-    uint8_t  ee_code;    /* code */
-    uint8_t  ee_pad;
-    uint32_t ee_info;    /* additional information */
-    uint32_t ee_data;    /* other data */
-    /* More data may follow */
-};
+//struct sock_extended_err {
+//    uint32_t ee_errno;   /* error number */
+//    uint8_t  ee_origin;  /* where the error originated */
+//    uint8_t  ee_type;    /* type */
+//    uint8_t  ee_code;    /* code */
+//    uint8_t  ee_pad;
+//    uint32_t ee_info;    /* additional information */
+//    uint32_t ee_data;    /* other data */
+//    struct sockaddr_in offender;
+//    /* More data may follow */
+//};
 
 void initialize_context(int argc, char **argv);
 

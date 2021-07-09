@@ -12,8 +12,7 @@
 #include <sys/time.h>
 #include "traceroute.h"
 #include <arpa/inet.h>
-
-
+#include <linux/errqueue.h>
 /*
  * Prototypes
  *
@@ -41,10 +40,9 @@ int get_name_by_ipaddr(in_addr_t ip, char *host,
 
 void process_trace() {
 
-    for (int i = 0; g_tcrt_ctx.current_ttl < g_tcrt_ctx.max_ttl; g_tcrt_ctx.current_ttl++, i++) {
+    for (int i = 1; g_tcrt_ctx.current_ttl < g_tcrt_ctx.max_ttl; g_tcrt_ctx.current_ttl++, i++) {
         printf("%2d  ", i);
         for (int j = 0; j < DEFAULT_PROBES_ONE_TTL; j++) {
-
             trcrt_send();
             trcrt_receive();
             trcrt_print_result();
@@ -76,10 +74,11 @@ static void trcrt_send() {
     else if (g_tcrt_ctx.flags & TRCRT_TCP)
         ;
     else {
+        g_tcrt_ctx.sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
         ret = send_udp_trcrt_msg(
                 g_tcrt_ctx.sock,
                 g_tcrt_ctx.current_ttl,
-                30, // TODO FIX
+                32, // TODO FIX
                 g_tcrt_ctx.dest_ip,
                 g_tcrt_ctx.dest_port,
                 g_tcrt_ctx.tos);
@@ -131,12 +130,12 @@ static void trcrt_handle_icmp(struct msghdr *msg) {
     ssize_t ret;
     struct icmphdr* icmp;
     struct iphdr* ip;
+    char   buffer[2048];
 
-    ret = recvmsg(g_tcrt_ctx.sock, msg, 0);
-
+    ret = recvfrom(g_tcrt_ctx.sock, buffer, sizeof buffer, 0, NULL, 0);
     if (ret > 0) {
-        ip = (struct iphdr *)msg->msg_iov->iov_base;
-        icmp = (struct icmphdr*)(msg->msg_iov->iov_base + sizeof (struct iphdr));
+        ip = (struct iphdr *)buffer;
+        icmp = (struct icmphdr*)(buffer + sizeof (struct iphdr));
         g_tcrt_ctx.answer_ip = ip->saddr;
 
         switch (icmp->type)
@@ -150,8 +149,6 @@ static void trcrt_handle_icmp(struct msghdr *msg) {
         default:
             g_tcrt_ctx.rc = UNKNOWN;
         }
-
-//        printf("icmp: %d\n", icmp->type);
         return;
     }
     if (ret == 0) {
@@ -169,28 +166,38 @@ static void trcrt_handle_icmp(struct msghdr *msg) {
 }
 
 static void trcrt_handle_udp(struct msghdr *msg) {
-    char    output[1024], ip_buffer[64], host_name[NI_MAXHOST], buffer[2048], buffer2[1024];
+    char    buffer2[1024];
     struct cmsghdr *cmsg;
     struct sock_extended_err *sock_err;
-    struct timeval  current_time, send_time;
     ssize_t ret;
+    struct sockaddr_in remote;
 
-    while (true) {
-        ret = setsockopt(g_tcrt_ctx.sock, SOL_IP, IP_RECVERR, (int[1]){ 1 }, sizeof(int));
-        if (ret != 0) {
-            perror("shit");
-            exit(EXIT_FAILURE);
-        }
+    char   buffer[2048];
+    struct iovec   iov[1];
+    // Init message struct
 
-        struct sockaddr_in remote;              /* Our socket */
-        msg->msg_name = (void *)&remote;
-        msg->msg_namelen = sizeof(remote);
-        msg->msg_flags = 0;
-        msg->msg_control = buffer2;
-        msg->msg_controllen = sizeof(buffer2);
+    iov[0].iov_base = buffer;
+    iov[0].iov_len = sizeof buffer;
+    msg->msg_iov     = iov;
+    msg->msg_iovlen  = 1;
 
+    msg->msg_name = (void *)&remote;
+    msg->msg_namelen = sizeof(remote);
+
+    msg->msg_flags = 0;
+    msg->msg_control = buffer2;
+    msg->msg_controllen = sizeof(buffer2);
+
+//    ret = setsockopt(g_tcrt_ctx.sock, IPPROTO_IP, IP_PKTINFO, (int[1]){ 1 }, sizeof(int));
+//    if (ret != 0) {
+//        perror("shit");
+//        exit(EXIT_FAILURE);
+//    }
+    memset(&remote, 0, sizeof remote);
+
+    g_tcrt_ctx.try_read = 1;
+    while (g_tcrt_ctx.try_read) {
         ret = recvmsg(g_tcrt_ctx.sock, msg, MSG_ERRQUEUE);
-//            printf("%d %d %s\n", ret, errno, strerror(errno));
 
         if (errno == EINTR) {
             printf("interrupted\n");
@@ -199,15 +206,14 @@ static void trcrt_handle_udp(struct msghdr *msg) {
 
         if (ret < 0) continue; // try again
 
-        printf("Hello\n");
-
         cmsg = CMSG_FIRSTHDR(msg);
         if (!cmsg) {
             return;
         }
         if (cmsg->cmsg_level == SOL_IP
-                && cmsg->cmsg_type == IP_RECVERR) {
+            && cmsg->cmsg_type == IP_RECVERR) {
             sock_err = (struct sock_extended_err *)CMSG_DATA(cmsg);
+
             if (!sock_err) return;
 
             switch (sock_err->ee_type)
@@ -221,11 +227,22 @@ static void trcrt_handle_udp(struct msghdr *msg) {
                 /* Handle all other cases. Find more errors :
                  * http://lxr.linux.no/linux+v3.5/include/linux/icmp.h#L39
                  */
+            case ICMP_NET_UNR_TOS:
+                g_tcrt_ctx.rc = TTLEXCEEDED;
+                break;
+            case ICMP_UNREACH_PORT:
+                g_tcrt_ctx.rc = HAVEANSWER;
+                break;
             }
 
-            printf("rettype: %d\n", sock_err->ee_type);
-        }
+            g_tcrt_ctx.answer_ip = ((struct sockaddr_in*)SO_EE_OFFENDER(sock_err))->sin_addr.s_addr;
+//            printf("%u\n", sock_err->offender.sin_addr.s_addr);
 
+//            printf("rettype: %d\n", sock_err->ee_type);
+        }
+        else {
+            printf("unknown\n");
+        }
         break;
     }
 }

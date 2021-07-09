@@ -3,6 +3,9 @@ project(ft_traceroute C)
 
 set(CMAKE_C_STANDARD 99)
 
+set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+set (CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
+
 add_executable(ft_traceroute
 		main.c
 		traceroute.h

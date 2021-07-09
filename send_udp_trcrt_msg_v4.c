@@ -3,6 +3,7 @@
 #include <string.h>
 #include <netinet/ip_icmp.h>
 #include <netdb.h>
+#include <fcntl.h>
 
 /*
  * Function: send_udp_trcrt_msg()
@@ -42,20 +43,46 @@ int send_udp_trcrt_msg(
     dest.sin_addr.s_addr = dest_ip;
     dest.sin_port = htons(dest_port);
 
+    struct sockaddr_in source;
+    memset(&source, 0, sizeof source);
+
+//    if (bind(udp_sock, (struct sockaddr *)&source, sizeof dest) != 0)
+//        return 1;
+
+//    if (setsockopt(udp_sock, SOL_IP, IP_MTU_DISCOVER, (int[1]){0}, sizeof (int)) != 0) {
+//        return 1;
+//    }
+
+//    if (setsockopt(udp_sock, SOL_SOCKET, SO_TIMESTAMP_OLD, (int[1]){1}, sizeof (int)) != 0) {
+//        return 1;
+//    }
+//    if (setsockopt(udp_sock, SOL_IP, IP_RECVTTL, (int[1]){1}, sizeof (int)) != 0) {
+//        return 1;
+//    }
+
+//    fcntl(udp_sock, F_SETFL, O_RDONLY | O_NONBLOCK);
+
     // Set TTL
-    if (setsockopt(udp_sock, IPPROTO_IP, IP_TTL, &ttl, sizeof ttl) != 0) {
+    if (setsockopt(udp_sock, SOL_IP, IP_TTL, &ttl, sizeof ttl) != 0) {
         return 1;
     }
     // Set TOS
-    if (setsockopt(udp_sock, IPPROTO_IP, IP_TOS, &tos, sizeof tos) != 0) {
+    if (setsockopt(udp_sock, SOL_IP, IP_TOS, &tos, sizeof tos) != 0) {
         return 1;
     }
+//    if (connect(udp_sock, (struct sockaddr *)&dest, sizeof dest) != 0)
+//        return 1;
+
+    if (setsockopt(udp_sock, SOL_IP, IP_RECVERR, (int[1]){ 1 }, sizeof(int)) != 0) {
+        return 1;
+    }
+
 
     // Prepare send buffer
     char    buffer[payload_size];
     memset(buffer, 0x42, payload_size);
     ret = sendto(udp_sock, buffer, payload_size, 0,
-            (struct sockaddr*)&dest, sizeof(struct sockaddr_in));
+            (struct sockaddr *)&dest, sizeof dest);
     if (ret == -1) {
         return 1;
     }

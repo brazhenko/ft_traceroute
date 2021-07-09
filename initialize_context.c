@@ -40,6 +40,7 @@ void initialize_context(int argc, char **argv) {
     /* options descriptor */
     static struct option long_opts[] = {
         { "help",       no_argument,        NULL,   'h' },
+        { "first",      required_argument,  NULL,   'f' },
         { "icmp",       no_argument,        NULL,   'I' },
         { "tcp",        no_argument,        NULL,   'T' },
         { "interface",  required_argument,  NULL,   'i' },
@@ -57,6 +58,10 @@ void initialize_context(int argc, char **argv) {
     while ((ch = getopt_long(argc, argv,
             "hITi:p:z:m:s:t:", long_opts, NULL)) != -1) {
         switch (ch) {
+        case 'f':
+            g_tcrt_ctx.flags |= TRCRT_FIRST_TTL;
+            g_tcrt_ctx.current_ttl = atoi(optarg);
+            break;
         case 'I':
             g_tcrt_ctx.flags |= TRCRT_ICMP;
             break;
@@ -132,7 +137,7 @@ void initialize_context(int argc, char **argv) {
 }
 
 static void initialize_sockets() {
-    int sock = -1, setsock = -1;
+    int sock = -1, setsock = 0;
 
     if (g_tcrt_ctx.flags & TRCRT_ICMP)
         sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
@@ -140,6 +145,7 @@ static void initialize_sockets() {
         ;
     else
         sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+
 
     if (sock < 0) {
         perror("cannot create socket");
@@ -150,8 +156,9 @@ static void initialize_sockets() {
         setsock = setsockopt(sock, IPPROTO_IP, IP_HDRINCL, (int[1]){1}, sizeof(int));
     else if (g_tcrt_ctx.flags & TRCRT_TCP)
         ;
-    else
-        ;
+    else {
+//        setsock = setsockopt(sock, SOL_IP, IP_RECVTTL, (int[1]){1}, sizeof(int));
+    }
 
     if (setsock < 0) {
         perror("cannot set sock option");
@@ -163,7 +170,8 @@ static void initialize_sockets() {
 }
 
 void f(int a) {
-    printf("alarm\n");
+//    printf("alarm\n");
+    g_tcrt_ctx.try_read = 0;
 }
 
 static void initialize_signals() {
@@ -241,3 +249,7 @@ static void set_default_args() {
 static void dump_version() {
     printf("%s built on %s at %s\n", "ft_tracroute v0.0.1", __DATE__, __TIME__);
 }
+
+
+
+//recvmsg(3, {msg_name={sa_family=AF_INET, sin_port=htons(33434), sin_addr=inet_addr("87.250.250.242")}, msg_namelen=28->16, msg_iov=[{iov_base="@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_", iov_len=1280}], msg_iovlen=1, msg_control=[{cmsg_len=32, cmsg_level=SOL_SOCKET, cmsg_type=SO_TIMESTAMP_OLD, cmsg_data={tv_sec=1625845723, tv_usec=934227}}, {cmsg_len=20, cmsg_level=SOL_IP, cmsg_type=IP_TTL, cmsg_data=[64]}, {cmsg_len=48, cmsg_level=SOL_IP, cmsg_type=IP_RECVERR, cmsg_data={ee_errno=113, ee_origin=2, ee_type=11, ee_code=0, ee_info=0, ee_data=0, offender={sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("172.17.0.1")}}}], msg_controllen=104, msg_flags=MSG_ERRQUEUE}, MSG_ERRQUEUE) = 32
