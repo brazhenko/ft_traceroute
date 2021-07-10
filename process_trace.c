@@ -119,13 +119,14 @@ static void trcrt_receive() {
 }
 
 static void trcrt_handle_icmp() {
-    ssize_t ret;
     struct icmphdr* icmp;
     struct iphdr* ip;
     char   buffer[2048];
+    ssize_t ret;
 
     ret = recvfrom(g_tcrt_ctx.sock, buffer, sizeof buffer, 0, NULL, 0);
 
+    // Answer came
     if (ret > 0) {
         ip = (struct iphdr *)buffer;
         icmp = (struct icmphdr*)(buffer + sizeof (struct iphdr));
@@ -146,18 +147,15 @@ static void trcrt_handle_icmp() {
         }
         return;
     }
+
+    // Some unexpected error
     if (ret == 0) {
         fprintf(stderr, "Connection closed\n");
         exit(EXIT_FAILURE);
     }
-    if (errno == EINTR) {
-        g_tcrt_ctx.rc = NOANSWER;
-        printf("no answer\n");
-        return;
-    }
 
-    perror("cannot receive message");
-    exit(EXIT_FAILURE);
+    // Reading interrupted by signal, equivalent to (errno==EINTR)
+    g_tcrt_ctx.rc = NOANSWER;
 }
 
 static void trcrt_handle_udp() {
@@ -165,7 +163,7 @@ static void trcrt_handle_udp() {
     char   buffer[2048];
     struct iovec   iov[1];
     struct msghdr  msg;
-    ssize_t ret = 0;
+    ssize_t ret;
 
     // Init message struct
     memset(&msg, 0, sizeof(msg));
@@ -178,28 +176,21 @@ static void trcrt_handle_udp() {
     char    buffer2[1024];
     struct cmsghdr *cmsg;
     struct sock_extended_err *sock_err;
-    struct sockaddr_in remote;
-
-    msg.msg_name = (void *)&remote;
-    msg.msg_namelen = sizeof(remote);
 
     msg.msg_flags = 0;
 
     msg.msg_control = buffer2;
     msg.msg_controllen = sizeof(buffer2);
 
-    memset(&remote, 0, sizeof remote);
-
     g_tcrt_ctx.try_read = 1;
+
     while (g_tcrt_ctx.try_read) {
         ret = recvmsg(g_tcrt_ctx.sock, &msg, MSG_ERRQUEUE);
-
-        if (ret < 0) continue; // Have not come yet, try again...
+        if (ret < 0) continue; // Resp have not come yet, try again...
 
         cmsg = CMSG_FIRSTHDR(&msg);
 
-        if (cmsg->cmsg_level == SOL_IP
-            && cmsg->cmsg_type == IP_RECVERR) {
+        if (cmsg->cmsg_level == SOL_IP && cmsg->cmsg_type == IP_RECVERR) {
             sock_err = (struct sock_extended_err *)CMSG_DATA(cmsg);
 
             switch (sock_err->ee_type)
@@ -217,6 +208,8 @@ static void trcrt_handle_udp() {
                 g_tcrt_ctx.rc = HAVEANSWER;
                 g_tcrt_ctx.end_tracing = 1;
                 break;
+            default:
+                g_tcrt_ctx.rc = UNKNOWN;
             }
             /* Handle all other cases. Find more errors :
              * http://lxr.linux.no/linux+v3.5/include/linux/icmp.h#L39
@@ -228,12 +221,11 @@ static void trcrt_handle_udp() {
         else {
             printf("unknown\n");
         }
-        break;
+
+        return;
     }
 
-    if (!g_tcrt_ctx.try_read) {
-        g_tcrt_ctx.rc = NOANSWER;
-    }
+    g_tcrt_ctx.rc = NOANSWER;
 }
 
 static void trcrt_handle_tcp() {
@@ -243,22 +235,20 @@ static void trcrt_handle_tcp() {
 static void trcrt_print_result() {
     char hostname[NI_MAXHOST] = { 0 };
     struct timeval msg_rcv_time;
+    __suseconds_t rtt;
     bool in_cache;
-    int ret;
 
-    ret = gettimeofday(&msg_rcv_time, NULL);
-    if (ret != 0) {
+    if (gettimeofday(&msg_rcv_time, NULL) != 0) {
         perror("cannot set time of receiving");
         exit(EXIT_FAILURE);
     }
-
     if (get_name_by_ipaddr(g_tcrt_ctx.answer_ip, hostname, sizeof hostname, &in_cache) != 0) {
         fprintf(stderr, "error\n");
         exit(EXIT_FAILURE);
     }
-    __suseconds_t rtt = time_diff(&g_tcrt_ctx.time_sent, &msg_rcv_time);
+    rtt = time_diff(&g_tcrt_ctx.time_sent, &msg_rcv_time);
 
-    if (!in_cache) {
+    if (!in_cache) { // TODO fix condition
         printf("%s ", hostname);
         printf("(%s)  ", inet_ntoa((struct in_addr){g_tcrt_ctx.answer_ip}));
     }
