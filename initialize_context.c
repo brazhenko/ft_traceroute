@@ -8,17 +8,25 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <signal.h>
+#include <stdbool.h>
 
 traceroute_context_t g_tcrt_ctx;
 
 static void dump_usage(const char *bin_name);
 static void dump_version();
 static void set_default_args();
-static void initialize_sockets();
+static void initialize_socket();
 static void initialize_signals();
+
+/*
+ * Dns resolvers
+ *
+ */
 
 int get_ipaddr_by_name(const char *name, in_addr_t *out,
         char *canon_name, size_t canon_name_size);
+int get_name_by_ipaddr(in_addr_t ip, char *host,
+        size_t host_len, bool *in_cache);
 
 /*
  * Function: initialize_context()
@@ -42,25 +50,22 @@ void initialize_context(int argc, char **argv) {
         { "help",       no_argument,        NULL,   'h' },
         { "first",      required_argument,  NULL,   'f' },
         { "icmp",       no_argument,        NULL,   'I' },
-        { "tcp",        no_argument,        NULL,   'T' },
-        { "interface",  required_argument,  NULL,   'i' },
+        { "tcp",        no_argument,        NULL,   'T' }, // ???
         { "port",       required_argument,  NULL,   'p' },
         { "sendwait",   required_argument,  NULL,   'z' },
         { "max-hops",   required_argument,  NULL,   'm' },
-        { "source",     required_argument,  NULL,   's' },
         { "tos",        required_argument,  NULL,   't' },
-        { "sport",      required_argument,  NULL,    1  },
         { "version",    required_argument,  NULL,   'V' },
         { "queries",    required_argument,  NULL,   'q' },
+        { "wait",       required_argument,  NULL,   'w' },
         { NULL,         0,                  NULL,    0  }
     };
 
-    int ch;
+    int ch, ret;
     while ((ch = getopt_long(argc, argv,
-            "hITi:p:z:m:s:t:", long_opts, NULL)) != -1) {
+            "hITp:z:m:t:w:", long_opts, NULL)) != -1) {
         switch (ch) {
         case 'f':
-            g_tcrt_ctx.flags |= TRCRT_FIRST_TTL;
             g_tcrt_ctx.current_ttl = atoi(optarg);
             break;
         case 'I':
@@ -69,34 +74,27 @@ void initialize_context(int argc, char **argv) {
         case 'T':
             g_tcrt_ctx.flags |= TRCRT_TCP;
             break;
-        case 'i':
-            g_tcrt_ctx.flags |= TRCRT_INTERFACE;
-            g_tcrt_ctx.device = optarg;
-            break;
         case 'p':
-            g_tcrt_ctx.flags |= TRCRT_PORT;
             g_tcrt_ctx.dest_port = atoi(optarg);
             break;
         case 'z':
-            g_tcrt_ctx.flags |= TRCRT_SENDWAIT;
             g_tcrt_ctx.send_wait = atoi(optarg);
             break;
         case 'm':
-            g_tcrt_ctx.flags |= TRCRT_MAXHOPS;
             g_tcrt_ctx.max_ttl = atoi(optarg);
             break;
-        case 's':
-            g_tcrt_ctx.flags |= TRCRT_SOURCE_IP; // TODO
-            break;
         case 't':
-            g_tcrt_ctx.flags |= TRCRT_TOS;
             g_tcrt_ctx.tos = atoi(optarg);
             break;
         case 'q':
-            g_tcrt_ctx.flags |= TRCRT_QUERY_COUNT;
             g_tcrt_ctx.query_count = atoi(optarg);
-        case 1:
-            g_tcrt_ctx.flags |= TRCRT_SOURCEPORT;
+            if (g_tcrt_ctx.query_count == 0
+            || g_tcrt_ctx.query_count > MAX_PROBS_PER_HOP) {
+                fprintf(stderr, "no more than %d probes per hop\n", MAX_PROBS_PER_HOP);
+                exit(EXIT_FAILURE);
+            }
+        case 'w':
+            g_tcrt_ctx.wait_max = atoi(optarg);
             break;
         case 'v':
             dump_version();
@@ -105,6 +103,7 @@ void initialize_context(int argc, char **argv) {
             dump_usage(argv[0]);
             exit(EXIT_SUCCESS);
         default:
+            fprintf(stderr, "Unsupported option\n");
             exit(EXIT_FAILURE);
         }
     }
@@ -121,7 +120,17 @@ void initialize_context(int argc, char **argv) {
     }
 
     // Prepare dest IP address
-    int ret = get_ipaddr_by_name(argv[optind], &g_tcrt_ctx.dest_ip, NULL, 0);
+    ret = get_ipaddr_by_name(argv[optind], &g_tcrt_ctx.dest_ip, NULL, 0);
+    if (ret) {
+        fprintf(stderr, "%s: %s\n", argv[0], gai_strerror(ret));
+        exit(EXIT_FAILURE);
+    }
+
+    // Provide canonic name by IP
+    ret = get_name_by_ipaddr(
+            g_tcrt_ctx.dest_ip,
+            g_tcrt_ctx.dest_name, sizeof g_tcrt_ctx.dest_name,
+            NULL);
     if (ret) {
         fprintf(stderr, "%s: %s\n", argv[0], gai_strerror(ret));
         exit(EXIT_FAILURE);
@@ -132,56 +141,18 @@ void initialize_context(int argc, char **argv) {
         g_tcrt_ctx.pack_len = atoi(argv[optind + 1]);
     }
 
-    for (int i = optind; i < argc; i++) {
-        printf("%s\n", argv[i]);
-    }
-
-    initialize_sockets();
     initialize_signals();
 }
 
-static void initialize_sockets() {
-    int sock = -1, setsock = 0;
-
-    if (g_tcrt_ctx.flags & TRCRT_ICMP)
-        sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-    else if (g_tcrt_ctx.flags & TRCRT_TCP)
-        ;
-    else
-        sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-
-
-    if (sock < 0) {
-        perror("cannot create socket");
-        exit(EXIT_FAILURE);
-    }
-
-    if (g_tcrt_ctx.flags & TRCRT_ICMP)
-        setsock = setsockopt(sock, IPPROTO_IP, IP_HDRINCL, (int[1]){1}, sizeof(int));
-    else if (g_tcrt_ctx.flags & TRCRT_TCP)
-        ;
-    else {
-//        setsock = setsockopt(sock, SOL_IP, IP_RECVTTL, (int[1]){1}, sizeof(int));
-    }
-
-    if (setsock < 0) {
-        perror("cannot set sock option");
-        close(sock);
-        exit(EXIT_FAILURE);
-    }
-
-    g_tcrt_ctx.sock = sock;
-}
-
-void f(int a) {
-//    printf("alarm\n");
+static void alarm_handler(int a) {
     g_tcrt_ctx.try_read = 0;
 }
 
 static void initialize_signals() {
     struct sigaction sa;
     memset(&sa, 0x0, sizeof sa);
-    sa.sa_handler = f;
+
+    sa.sa_handler = alarm_handler;
     sigemptyset(&sa.sa_mask);
     sigaction(SIGALRM, &sa, NULL);
 }
@@ -204,8 +175,10 @@ static void dump_usage(const char *bin_name) {
     "                              Start from the first_ttl hop (instead from 1)\n"
     "  -I  --icmp                  Use ICMP ECHO for tracerouting\n"
     "  -T  --tcp                   Use TCP SYN for tracerouting (default port is 80)\n"
-    "  -i device  --interface=device\n"
-    "                              Specify a network interface to operate with\n"
+
+
+//    "  -i device  --interface=device\n"
+//    "                              Specify a network interface to operate with\n"
     "  -m max_ttl  --max-hops=max_ttl\n"
     "                              Set the max number of hops (max TTL to be\n"
     "                              reached). Default is 30\n"
@@ -219,17 +192,19 @@ static void dump_usage(const char *bin_name) {
     "  -q nqueries  --queries=nqueries\n"
     "                              Set the number of probes per each hop. Default is\n"
     "                              3\n"
-    "  -t tos  --tos=tos           Set the TOS (IPv4 type of service) or TC (IPv6\n"
-    "                              traffic class) value for outgoing packets\n"
-    "  -s src_addr  --source=src_addr\n"
-    "                              Use source src_addr for outgoing packets\n"
+    "  -t tos  --tos=tos           Set the TOS (IPv4 type of service) value for outgoing packets\n"
+
+//    "  -s src_addr  --source=src_addr\n"
+//    "                              Use source src_addr for outgoing packets\n"
+    "  -w MAX  --wait=MAX          Wait for a probe no more than MAX (default 5.0)\n"
+    "                              seconds\n"
     "  -z sendwait  --sendwait=sendwait\n"
     "                              Minimal time interval between probes (default 0).\n"
     "                              If the value is more than 10, then it specifies a\n"
     "                              number in milliseconds, else it is a number of\n"
     "                              seconds (float point values allowed too)\n"
-    "  --sport=num                 Use source port num for outgoing packets. Implies\n"
-    "                              `-N 1'\n"
+//    "  --sport=num                 Use source port num for outgoing packets. Implies\n"
+//    "                              `-N 1'\n"
     "  -V  --version               Print version info and exit\n"
     "  -h  --help                  Read this help and exit\n"
     "\n"
@@ -249,9 +224,11 @@ static void set_default_args() {
         g_tcrt_ctx.dest_port = DEFAULT_START_PORT;
 
     g_tcrt_ctx.send_wait = 0;
-    g_tcrt_ctx.max_ttl = 255; /* Max possible ttl */
+    g_tcrt_ctx.max_ttl = DEFAULT_MAX_TTL;
     g_tcrt_ctx.current_ttl = 1;
     g_tcrt_ctx.query_count = DEFAULT_PROBES_ONE_TTL;
+    g_tcrt_ctx.wait_max = DEFAULT_RESP_TIME_WAIT;
+    g_tcrt_ctx.pack_len = DEFAULT_PACK_LEN;
 }
 
 static void dump_version() {

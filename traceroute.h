@@ -4,6 +4,7 @@
 # include <stddef.h>
 # include <stdint.h>
 # include <netinet/in.h>
+#include <netdb.h>
 
 enum ret_code {
     NOANSWER=1,
@@ -17,6 +18,7 @@ typedef struct {
     int sock;
     uint64_t flags;
     const char *device;
+    char dest_name[NI_MAXHOST];
     in_addr_t dest_ip;
     in_addr_t source_ip;
     uint16_t source_port;
@@ -25,6 +27,7 @@ typedef struct {
     uint8_t tos;
     int pack_len;
     uint8_t query_count;
+    uint8_t wait_max;
     // Dynamic data
     uint8_t current_ttl;
     uint16_t dest_port;
@@ -41,21 +44,26 @@ extern traceroute_context_t g_tcrt_ctx;
 /* Flags */
 # define TRCRT_ICMP 0x1         /* Use ICMP instead default UDP */
 # define TRCRT_TCP 0x2          /* Use TCP instead od default UDP or ICMP */
-# define TRCRT_INTERFACE 0x4
-# define TRCRT_PORT 0x8         /* Set start port instead of default 33434 */
-# define TRCRT_SENDWAIT 0x10    /* Set interval between probes (default 0) */
-# define TRCRT_MAXHOPS 0x20     /* Max ttl option */
 # define TRCRT_SOURCE_IP 0x40
-# define TRCRT_TOS 0x80         /* Set type of service */
-# define TRCRT_SOURCEPORT 0x100 /* Source port enabled */
-# define TRCRT_FIRST_TTL 0x200 /* First ttl enabled (default 1) */
-# define TRCRT_QUERY_COUNT 0x400 /* Nqueries is set */
 
 /* Value constants */
 # define DEFAULT_START_PORT 33434
 # define DEFAULT_PROBES_ONE_TTL 3
 # define DEFAULT_RESP_TIME_WAIT 5
+# define DEFAULT_MAX_TTL 30
 # define MICROSECONDS_IN_SECOND 1000000
+# define DEFAULT_PACK_LEN 60
+# define MAX_PROBS_PER_HOP 10
+
+#define max(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a > _b ? _a : _b; })
+
+#define min(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a < _b ? _a : _b; })
 
 void initialize_context(int argc, char **argv);
 

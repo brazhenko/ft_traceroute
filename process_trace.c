@@ -13,6 +13,7 @@
 #include "traceroute.h"
 #include <arpa/inet.h>
 #include <linux/errqueue.h>
+#include <linux/udp.h>
 
 /*
  * Prototypes
@@ -20,6 +21,8 @@
  */
 
 static void trcrt_send();
+static void initialize_socket();
+
 static void trcrt_receive();
 
 static void trcrt_handle_icmp();
@@ -43,6 +46,12 @@ int get_name_by_ipaddr(in_addr_t ip, char *host,
  */
 
 void process_trace() {
+    // Go, go, go !!!
+    printf("traceroute to %s (%s), %d hops max, %d byte packets\n",
+            "A",
+            inet_ntoa((struct in_addr){ g_tcrt_ctx.dest_ip }),
+            g_tcrt_ctx.max_ttl, g_tcrt_ctx.pack_len);
+
     for (
             int i = 1;
             g_tcrt_ctx.current_ttl < g_tcrt_ctx.max_ttl;
@@ -51,10 +60,11 @@ void process_trace() {
         printf("%2d  ", i);
         for (uint8_t j = 0; j < g_tcrt_ctx.query_count; j++, g_tcrt_ctx.dest_port++) {
             // Pipeline
+            initialize_socket();
             trcrt_send();
             trcrt_receive();
             trcrt_print_result();
-
+            close(g_tcrt_ctx.sock);
             sleep(g_tcrt_ctx.send_wait);
         }
         printf("\n");
@@ -73,7 +83,7 @@ static void trcrt_send() {
                 g_tcrt_ctx.current_ttl,
                 ICMP_ECHO,
                 g_tcrt_ctx.dest_port /* according to man */,
-                30,
+                max(g_tcrt_ctx.pack_len - sizeof (struct iphdr) - sizeof (struct icmphdr), 0),
                 g_tcrt_ctx.source_ip,
                 g_tcrt_ctx.dest_ip,
                 g_tcrt_ctx.tos);
@@ -86,7 +96,7 @@ static void trcrt_send() {
         ret = send_udp_trcrt_msg(
                 g_tcrt_ctx.sock,
                 g_tcrt_ctx.current_ttl,
-                32, // TODO FIX
+                max(g_tcrt_ctx.pack_len - sizeof (struct iphdr) - sizeof (struct udphdr), 0), // TODO FIX
                 g_tcrt_ctx.dest_ip,
                 g_tcrt_ctx.dest_port,
                 g_tcrt_ctx.tos);
@@ -104,8 +114,41 @@ static void trcrt_send() {
     }
 }
 
+static void initialize_socket() {
+    int sock = -1, setsock = 0;
+
+    if (g_tcrt_ctx.flags & TRCRT_ICMP)
+        sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+    else if (g_tcrt_ctx.flags & TRCRT_TCP)
+        ;
+    else
+        sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+
+
+    if (sock < 0) {
+        perror("cannot create socket");
+        exit(EXIT_FAILURE);
+    }
+
+    if (g_tcrt_ctx.flags & TRCRT_ICMP)
+        setsock = setsockopt(sock, IPPROTO_IP, IP_HDRINCL, (int[1]){1}, sizeof(int));
+    else if (g_tcrt_ctx.flags & TRCRT_TCP)
+        ;
+    else {
+//        setsock = setsockopt(sock, SOL_IP, IP_RECVTTL, (int[1]){1}, sizeof(int));
+    }
+
+    if (setsock < 0) {
+        perror("cannot set sock option");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
+
+    g_tcrt_ctx.sock = sock;
+}
+
 static void trcrt_receive() {
-    alarm(DEFAULT_RESP_TIME_WAIT);
+    alarm(g_tcrt_ctx.wait_max);
 
     if (g_tcrt_ctx.flags & TRCRT_ICMP) {
         trcrt_handle_icmp();
@@ -236,21 +279,27 @@ static void trcrt_print_result() {
     char hostname[NI_MAXHOST] = { 0 };
     struct timeval msg_rcv_time;
     __suseconds_t rtt;
-    bool in_cache;
+    int ret;
 
     if (gettimeofday(&msg_rcv_time, NULL) != 0) {
         perror("cannot set time of receiving");
         exit(EXIT_FAILURE);
     }
-    if (get_name_by_ipaddr(g_tcrt_ctx.answer_ip, hostname, sizeof hostname, &in_cache) != 0) {
-        fprintf(stderr, "error\n");
-        exit(EXIT_FAILURE);
-    }
+    ret = get_name_by_ipaddr(g_tcrt_ctx.answer_ip, hostname, sizeof hostname, NULL);
     rtt = time_diff(&g_tcrt_ctx.time_sent, &msg_rcv_time);
 
-    if (!in_cache) { // TODO fix condition
-        printf("%s ", hostname);
-        printf("(%s)  ", inet_ntoa((struct in_addr){g_tcrt_ctx.answer_ip}));
+    if (g_tcrt_ctx.answer_ip != g_tcrt_ctx.last_printed_ip) {
+        if (ret == 0) {
+            // managed to resolve hostname
+            printf("%s ", hostname);
+        }
+        else {
+            // Did not manage to resolve hostname
+            printf("%s ", inet_ntoa((struct in_addr){ g_tcrt_ctx.answer_ip }));
+        }
+
+        printf("(%s)  ", inet_ntoa((struct in_addr){ g_tcrt_ctx.answer_ip }));
+        g_tcrt_ctx.last_printed_ip = g_tcrt_ctx.answer_ip;
     }
 
     switch (g_tcrt_ctx.rc)

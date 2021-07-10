@@ -109,7 +109,10 @@ int get_name_by_ipaddr(in_addr_t ip, char *host,
     }
 
     // Append to cache
-    *in_cache = false;
+    if (in_cache) {
+        *in_cache = false;
+    }
+
     if (count < 30) {
         storage[count].addr = ip;
         strncpy(storage[count].hostname, host, NI_MAXHOST);
