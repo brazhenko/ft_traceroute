@@ -36,7 +36,7 @@ int get_ipaddr_by_name(const char *name, in_addr_t *out,
     struct addrinfo hints, *result;
     int errcode;
 
-    memset (&hints, 0, sizeof (hints));
+    memset (&hints, 0x0, sizeof (hints));
     hints.ai_family = AF_INET;
     hints.ai_flags |= AI_CANONNAME;
 
@@ -73,7 +73,7 @@ int get_ipaddr_by_name(const char *name, in_addr_t *out,
  */
 
 int get_name_by_ipaddr(in_addr_t ip, char *host,
-        size_t host_len, bool *in_cache) {
+        size_t host_len) {
     struct help {
         in_addr_t addr;
         char      hostname[NI_MAXHOST];
@@ -85,9 +85,6 @@ int get_name_by_ipaddr(in_addr_t ip, char *host,
     for (int i = 0; i < count; i++) {
         if (storage[i].addr == ip) {
             // Found in cache
-            if (in_cache) {
-                *in_cache = true;
-            }
             strncpy(host, storage[i].hostname, host_len);
             return 0;
         }
@@ -95,7 +92,7 @@ int get_name_by_ipaddr(in_addr_t ip, char *host,
 
     struct sockaddr_in addr;
     int ret_code;
-    memset(&addr, 0, sizeof addr);
+    memset(&addr, 0x0, sizeof addr);
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = ip;
 
@@ -108,11 +105,7 @@ int get_name_by_ipaddr(in_addr_t ip, char *host,
         return ret_code;
     }
 
-    // Append to cache
-    if (in_cache) {
-        *in_cache = false;
-    }
-
+    // Append to cache if possible
     if (count < 30) {
         storage[count].addr = ip;
         strncpy(storage[count].hostname, host, NI_MAXHOST);

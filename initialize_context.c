@@ -3,14 +3,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
 #include <unistd.h>
 #include <signal.h>
 #include <stdbool.h>
 
 traceroute_context_t g_tcrt_ctx;
+
+/*
+ * Static prototypes
+ *
+ */
 
 static void dump_usage(const char *bin_name);
 static void dump_version();
@@ -197,10 +199,12 @@ static void dump_usage(const char *bin_name) {
 static void set_default_args() {
     memset(&g_tcrt_ctx, 0x0, sizeof g_tcrt_ctx);
 
-    if (g_tcrt_ctx.flags & TRCRT_ICMP)
+    if (g_tcrt_ctx.flags & TRCRT_ICMP) {
         g_tcrt_ctx.dest_port = 1; /* sequence id */
-    else
+    }
+    else {
         g_tcrt_ctx.dest_port = DEFAULT_START_PORT;
+    }
 
     g_tcrt_ctx.send_wait = 0;
     g_tcrt_ctx.max_ttl = DEFAULT_MAX_TTL;
@@ -213,7 +217,6 @@ static void set_default_args() {
 static void dump_version() {
     printf("%s built on %s at %s\n", "ft_tracroute v0.0.1", __DATE__, __TIME__);
 }
-
 
 
 //recvmsg(3, {msg_name={sa_family=AF_INET, sin_port=htons(33434), sin_addr=inet_addr("87.250.250.242")}, msg_namelen=28->16, msg_iov=[{iov_base="@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_", iov_len=1280}], msg_iovlen=1, msg_control=[{cmsg_len=32, cmsg_level=SOL_SOCKET, cmsg_type=SO_TIMESTAMP_OLD, cmsg_data={tv_sec=1625845723, tv_usec=934227}}, {cmsg_len=20, cmsg_level=SOL_IP, cmsg_type=IP_TTL, cmsg_data=[64]}, {cmsg_len=48, cmsg_level=SOL_IP, cmsg_type=IP_RECVERR, cmsg_data={ee_errno=113, ee_origin=2, ee_type=11, ee_code=0, ee_info=0, ee_data=0, offender={sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("172.17.0.1")}}}], msg_controllen=104, msg_flags=MSG_ERRQUEUE}, MSG_ERRQUEUE) = 32

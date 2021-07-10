@@ -13,6 +13,8 @@
  *
  *  udp_sock - socket(AF_INET, SOCK_DGRAM, IPPROTO_IP)
  *
+ *  tos - type of service
+ *
  *  ttl - tll for packet
  *
  *  payload_size - size of udp buffer sent (random data)
@@ -29,38 +31,22 @@
 
 int send_udp_trcrt_msg(
         int udp_sock,
+        uint8_t tos,
         uint8_t ttl,
         size_t payload_size,
         in_addr_t dest_ip,
-        in_port_t dest_port,
-        uint8_t tos
+        in_port_t dest_port
 ) {
     ssize_t ret;
     // Prepare destination
     struct sockaddr_in dest;
-    memset(&dest, 0, sizeof dest);
+    memset(&dest, 0x0, sizeof dest);
     dest.sin_family = AF_INET;
     dest.sin_addr.s_addr = dest_ip;
     dest.sin_port = htons(dest_port);
 
     struct sockaddr_in source;
-    memset(&source, 0, sizeof source);
-
-//    if (bind(udp_sock, (struct sockaddr *)&source, sizeof dest) != 0)
-//        return 1;
-
-//    if (setsockopt(udp_sock, SOL_IP, IP_MTU_DISCOVER, (int[1]){0}, sizeof (int)) != 0) {
-//        return 1;
-//    }
-
-//    if (setsockopt(udp_sock, SOL_SOCKET, SO_TIMESTAMP_OLD, (int[1]){1}, sizeof (int)) != 0) {
-//        return 1;
-//    }
-//    if (setsockopt(udp_sock, SOL_IP, IP_RECVTTL, (int[1]){1}, sizeof (int)) != 0) {
-//        return 1;
-//    }
-
-//    fcntl(udp_sock, F_SETFL, O_RDONLY | O_NONBLOCK);
+    memset(&source, 0x0, sizeof source);
 
     // Set TTL
     if (setsockopt(udp_sock, SOL_IP, IP_TTL, &ttl, sizeof ttl) != 0) {
@@ -70,13 +56,6 @@ int send_udp_trcrt_msg(
     if (setsockopt(udp_sock, SOL_IP, IP_TOS, &tos, sizeof tos) != 0) {
         return 1;
     }
-//    if (connect(udp_sock, (struct sockaddr *)&dest, sizeof dest) != 0)
-//        return 1;
-
-    if (setsockopt(udp_sock, SOL_IP, IP_RECVERR, (int[1]){ 1 }, sizeof(int)) != 0) {
-        return 1;
-    }
-
 
     // Prepare send buffer
     char    buffer[payload_size];

@@ -13,11 +13,15 @@ static uint16_t ipv4_icmp_checksum(const uint16_t *words, size_t word_count);
  *  (https://datatracker.ietf.org/doc/html/rfc792)
  *  and sends to a particular IP-address,
  *
- *  sock - socket(AF_INTET, SOCK_RAW, ...)
+ *  sock - socket(AF_INTET, SOCK_RAW, )
+ *
+ *  tos - type of service
  *
  *  id - id to put in IPv4 header
  *
  *  ttl - tll for packet
+ *
+ *  icmp_type - ICMP type (e.g. ECHO/ECHO_REPLY/etc)
  *
  *  icmp_seq_num - icmp sequence number
  *
@@ -33,14 +37,14 @@ static uint16_t ipv4_icmp_checksum(const uint16_t *words, size_t word_count);
 
 int send_icmp_msg_v4(
         int sock,
+        uint8_t tos,
         uint16_t id,
         uint8_t ttl,
         uint8_t icmp_type,
         uint16_t icmp_seq_num,
         size_t payload_size,
         in_addr_t source_ip,
-        in_addr_t dest_ip,
-        uint8_t tos
+        in_addr_t dest_ip
 ) {
     static const size_t ip_hdr_size = sizeof (struct iphdr) /* =20 */
     , icmp_hdr_size = sizeof (struct icmphdr); /* =8 */
@@ -49,7 +53,7 @@ int send_icmp_msg_v4(
             = ip_hdr_size + icmp_hdr_size + payload_size;
 
     char message[entire_msg_size + 1]; /* God sorry for VLA for message... */
-    memset(message, 0, entire_msg_size + 1);
+    memset(message, 0x0, entire_msg_size + 1);
 
     // Filling the IP header
     struct ip *ip_header = (struct ip *)message;
@@ -96,7 +100,7 @@ int send_icmp_msg_v4(
 
     // Actually send our message
     struct sockaddr_in dest;
-    memset(&dest, 0, sizeof dest);
+    memset(&dest, 0x0, sizeof dest);
     dest.sin_family = AF_INET;
     dest.sin_addr.s_addr = dest_ip;
 

@@ -32,11 +32,11 @@ static void trcrt_print_result();
 
 static __suseconds_t time_diff(struct timeval* begin, struct timeval *end);
 
-int send_icmp_msg_v4(int sock, uint16_t id, uint8_t ttl, uint8_t icmp_type,
+int send_icmp_msg_v4(int sock, uint8_t tos, uint16_t id, uint8_t ttl, uint8_t icmp_type,
         uint16_t icmp_seq_num, size_t payload_size, in_addr_t source_ip,
-        in_addr_t dest_ip, uint8_t tos);
-int send_udp_trcrt_msg(int udp_sock, uint8_t ttl, size_t payload_size,
-        in_addr_t dest_ip, in_port_t dest_port, uint8_t tos);
+        in_addr_t dest_ip);
+int send_udp_trcrt_msg(int udp_sock, uint8_t tos, uint8_t ttl, size_t payload_size,
+        in_addr_t dest_ip, in_port_t dest_port);
 int get_name_by_ipaddr(in_addr_t ip, char *host,
         size_t host_len, bool *in_cache);
 
@@ -80,23 +80,23 @@ static void trcrt_send() {
     if (g_tcrt_ctx.flags & TRCRT_ICMP) {
         ret = send_icmp_msg_v4(
                 g_tcrt_ctx.sock,
+                g_tcrt_ctx.tos,
                 getpid(),
                 g_tcrt_ctx.current_ttl,
                 ICMP_ECHO,
                 g_tcrt_ctx.dest_port /* according to man */,
                 max(g_tcrt_ctx.pack_len - sizeof (struct iphdr) - sizeof (struct icmphdr), 0),
                 g_tcrt_ctx.source_ip,
-                g_tcrt_ctx.dest_ip,
-                g_tcrt_ctx.tos);
+                g_tcrt_ctx.dest_ip);
     }
     else {
         ret = send_udp_trcrt_msg(
                 g_tcrt_ctx.sock,
+                g_tcrt_ctx.tos,
                 g_tcrt_ctx.current_ttl,
                 max(g_tcrt_ctx.pack_len - sizeof (struct iphdr) - sizeof (struct udphdr), 0),
                 g_tcrt_ctx.dest_ip,
-                g_tcrt_ctx.dest_port,
-                g_tcrt_ctx.tos);
+                g_tcrt_ctx.dest_port);
     }
 
     if (ret != 0) {
@@ -127,9 +127,9 @@ static void initialize_socket() {
     }
 
     if (g_tcrt_ctx.flags & TRCRT_ICMP)
-        setsock = setsockopt(sock, IPPROTO_IP, IP_HDRINCL, (int[1]){1}, sizeof(int));
+        setsock = setsockopt(sock, IPPROTO_IP, IP_HDRINCL, (int[1]){ 1 }, sizeof(int));
     else {
-//        setsock = setsockopt(sock, SOL_IP, IP_RECVTTL, (int[1]){1}, sizeof(int));
+        setsock = setsockopt(sock, SOL_IP, IP_RECVERR, (int[1]){ 1 }, sizeof(int));
     }
 
     if (setsock < 0) {
@@ -208,8 +208,8 @@ static void trcrt_handle_udp() {
     ssize_t ret;
 
     // Init message struct
-    memset(&msg, 0, sizeof(msg));
-    memset(iov, 0, sizeof(iov));
+    memset(&msg, 0x0, sizeof(msg));
+    memset(iov, 0x0, sizeof(iov));
     iov[0].iov_base = buffer;
     iov[0].iov_len = sizeof buffer;
     msg.msg_iov     = iov;
