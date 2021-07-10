@@ -26,7 +26,6 @@ static void initialize_socket();
 static void trcrt_receive();
 
 static void trcrt_handle_icmp();
-static void trcrt_handle_tcp();
 static void trcrt_handle_udp();
 static void trcrt_print_result();
 
@@ -48,7 +47,7 @@ int get_name_by_ipaddr(in_addr_t ip, char *host,
 void process_trace() {
     // Go, go, go !!!
     printf("traceroute to %s (%s), %d hops max, %d byte packets\n",
-            "A",
+            g_tcrt_ctx.dest_name,
             inet_ntoa((struct in_addr){ g_tcrt_ctx.dest_ip }),
             g_tcrt_ctx.max_ttl, g_tcrt_ctx.pack_len);
 
@@ -88,15 +87,11 @@ static void trcrt_send() {
                 g_tcrt_ctx.dest_ip,
                 g_tcrt_ctx.tos);
     }
-    else if (g_tcrt_ctx.flags & TRCRT_TCP) {
-        ;
-    }
     else {
-        g_tcrt_ctx.sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
         ret = send_udp_trcrt_msg(
                 g_tcrt_ctx.sock,
                 g_tcrt_ctx.current_ttl,
-                max(g_tcrt_ctx.pack_len - sizeof (struct iphdr) - sizeof (struct udphdr), 0), // TODO FIX
+                max(g_tcrt_ctx.pack_len - sizeof (struct iphdr) - sizeof (struct udphdr), 0),
                 g_tcrt_ctx.dest_ip,
                 g_tcrt_ctx.dest_port,
                 g_tcrt_ctx.tos);
@@ -115,14 +110,14 @@ static void trcrt_send() {
 }
 
 static void initialize_socket() {
-    int sock = -1, setsock = 0;
+    int sock, setsock = 0;
 
-    if (g_tcrt_ctx.flags & TRCRT_ICMP)
+    if (g_tcrt_ctx.flags & TRCRT_ICMP) {
         sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-    else if (g_tcrt_ctx.flags & TRCRT_TCP)
-        ;
-    else
+    }
+    else {
         sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+    }
 
 
     if (sock < 0) {
@@ -132,8 +127,6 @@ static void initialize_socket() {
 
     if (g_tcrt_ctx.flags & TRCRT_ICMP)
         setsock = setsockopt(sock, IPPROTO_IP, IP_HDRINCL, (int[1]){1}, sizeof(int));
-    else if (g_tcrt_ctx.flags & TRCRT_TCP)
-        ;
     else {
 //        setsock = setsockopt(sock, SOL_IP, IP_RECVTTL, (int[1]){1}, sizeof(int));
     }
@@ -152,9 +145,6 @@ static void trcrt_receive() {
 
     if (g_tcrt_ctx.flags & TRCRT_ICMP) {
         trcrt_handle_icmp();
-    }
-    else if (g_tcrt_ctx.flags & TRCRT_TCP) {
-        trcrt_handle_tcp();
     }
     else {
         trcrt_handle_udp();
@@ -269,10 +259,6 @@ static void trcrt_handle_udp() {
     }
 
     g_tcrt_ctx.rc = NOANSWER;
-}
-
-static void trcrt_handle_tcp() {
-
 }
 
 static void trcrt_print_result() {

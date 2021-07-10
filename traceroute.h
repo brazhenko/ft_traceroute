@@ -18,7 +18,7 @@ typedef struct {
     int sock;
     uint64_t flags;
     const char *device;
-    char dest_name[NI_MAXHOST];
+    char* dest_name;
     in_addr_t dest_ip;
     in_addr_t source_ip;
     uint16_t source_port;
@@ -43,8 +43,6 @@ extern traceroute_context_t g_tcrt_ctx;
 
 /* Flags */
 # define TRCRT_ICMP 0x1         /* Use ICMP instead default UDP */
-# define TRCRT_TCP 0x2          /* Use TCP instead od default UDP or ICMP */
-# define TRCRT_SOURCE_IP 0x40
 
 /* Value constants */
 # define DEFAULT_START_PORT 33434

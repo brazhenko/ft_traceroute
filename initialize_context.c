@@ -50,7 +50,6 @@ void initialize_context(int argc, char **argv) {
         { "help",       no_argument,        NULL,   'h' },
         { "first",      required_argument,  NULL,   'f' },
         { "icmp",       no_argument,        NULL,   'I' },
-        { "tcp",        no_argument,        NULL,   'T' }, // ???
         { "port",       required_argument,  NULL,   'p' },
         { "sendwait",   required_argument,  NULL,   'z' },
         { "max-hops",   required_argument,  NULL,   'm' },
@@ -70,9 +69,6 @@ void initialize_context(int argc, char **argv) {
             break;
         case 'I':
             g_tcrt_ctx.flags |= TRCRT_ICMP;
-            break;
-        case 'T':
-            g_tcrt_ctx.flags |= TRCRT_TCP;
             break;
         case 'p':
             g_tcrt_ctx.dest_port = atoi(optarg);
@@ -126,17 +122,10 @@ void initialize_context(int argc, char **argv) {
         exit(EXIT_FAILURE);
     }
 
-    // Provide canonic name by IP
-    ret = get_name_by_ipaddr(
-            g_tcrt_ctx.dest_ip,
-            g_tcrt_ctx.dest_name, sizeof g_tcrt_ctx.dest_name,
-            NULL);
-    if (ret) {
-        fprintf(stderr, "%s: %s\n", argv[0], gai_strerror(ret));
-        exit(EXIT_FAILURE);
-    }
+    // Provide dest name
+    g_tcrt_ctx.dest_name = argv[optind];
 
-    // Get packetlen if exists
+    // Get packet len if exists
     if (optind + 1 < argc) {
         g_tcrt_ctx.pack_len = atoi(argv[optind + 1]);
     }
@@ -175,10 +164,6 @@ static void dump_usage(const char *bin_name) {
     "                              Start from the first_ttl hop (instead from 1)\n"
     "  -I  --icmp                  Use ICMP ECHO for tracerouting\n"
     "  -T  --tcp                   Use TCP SYN for tracerouting (default port is 80)\n"
-
-
-//    "  -i device  --interface=device\n"
-//    "                              Specify a network interface to operate with\n"
     "  -m max_ttl  --max-hops=max_ttl\n"
     "                              Set the max number of hops (max TTL to be\n"
     "                              reached). Default is 30\n"
@@ -193,9 +178,6 @@ static void dump_usage(const char *bin_name) {
     "                              Set the number of probes per each hop. Default is\n"
     "                              3\n"
     "  -t tos  --tos=tos           Set the TOS (IPv4 type of service) value for outgoing packets\n"
-
-//    "  -s src_addr  --source=src_addr\n"
-//    "                              Use source src_addr for outgoing packets\n"
     "  -w MAX  --wait=MAX          Wait for a probe no more than MAX (default 5.0)\n"
     "                              seconds\n"
     "  -z sendwait  --sendwait=sendwait\n"
@@ -203,8 +185,6 @@ static void dump_usage(const char *bin_name) {
     "                              If the value is more than 10, then it specifies a\n"
     "                              number in milliseconds, else it is a number of\n"
     "                              seconds (float point values allowed too)\n"
-//    "  --sport=num                 Use source port num for outgoing packets. Implies\n"
-//    "                              `-N 1'\n"
     "  -V  --version               Print version info and exit\n"
     "  -h  --help                  Read this help and exit\n"
     "\n"

@@ -13,7 +13,7 @@ static uint16_t ipv4_icmp_checksum(const uint16_t *words, size_t word_count);
  *  (https://datatracker.ietf.org/doc/html/rfc792)
  *  and sends to a particular IP-address,
  *
- *  sock - system socket
+ *  sock - socket(AF_INTET, SOCK_RAW, ...)
  *
  *  id - id to put in IPv4 header
  *
