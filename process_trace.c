@@ -22,6 +22,7 @@
 
 static void trcrt_send();
 static void initialize_socket();
+static void destroy_socket();
 
 static void trcrt_receive();
 
@@ -63,7 +64,8 @@ void process_trace() {
             trcrt_send();
             trcrt_receive();
             trcrt_print_result();
-            close(g_tcrt_ctx.sock);
+            destroy_socket();
+
             sleep(g_tcrt_ctx.send_wait);
         }
         printf("\n");
@@ -73,7 +75,7 @@ void process_trace() {
 }
 
 static void trcrt_send() {
-    int ret = 0;
+    int ret;
 
     if (g_tcrt_ctx.flags & TRCRT_ICMP) {
         ret = send_icmp_msg_v4(
@@ -119,7 +121,6 @@ static void initialize_socket() {
         sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
     }
 
-
     if (sock < 0) {
         perror("cannot create socket");
         exit(EXIT_FAILURE);
@@ -137,7 +138,15 @@ static void initialize_socket() {
         exit(EXIT_FAILURE);
     }
 
+    // Set socket to context
     g_tcrt_ctx.sock = sock;
+}
+
+static void destroy_socket() {
+    if (close(g_tcrt_ctx.sock) != 0) {
+        perror("cannot close socket");
+        exit(EXIT_FAILURE);
+    }
 }
 
 static void trcrt_receive() {

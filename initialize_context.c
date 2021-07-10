@@ -155,7 +155,6 @@ static void dump_usage(const char *bin_name) {
     "[ -p port ] "
     "[ -z sendwait ] "
     "[ -m max_ttl ] "
-    "[ -s src_addr ] "
     "[ -t tos ] "
     "host "
     "[ packetlen ]\n"
