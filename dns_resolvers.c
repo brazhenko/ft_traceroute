@@ -81,7 +81,7 @@ int get_name_by_ipaddr(in_addr_t ip, char *host,
     static struct help storage[30] = { 0 }; /* No lru, man, no lru */
     static int count = 0;
 
-    // Lookup in cache
+    // Look up in cache
     for (int i = 0; i < count; i++) {
         if (storage[i].addr == ip) {
             // Found in cache

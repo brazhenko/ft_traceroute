@@ -51,6 +51,7 @@ void initialize_context(int argc, char **argv) {
         { "tos",        required_argument,  NULL,   't' },
         { "sport",      required_argument,  NULL,    1  },
         { "version",    required_argument,  NULL,   'V' },
+        { "queries",    required_argument,  NULL,   'q' },
         { NULL,         0,                  NULL,    0  }
     };
 
@@ -91,6 +92,9 @@ void initialize_context(int argc, char **argv) {
             g_tcrt_ctx.flags |= TRCRT_TOS;
             g_tcrt_ctx.tos = atoi(optarg);
             break;
+        case 'q':
+            g_tcrt_ctx.flags |= TRCRT_QUERY_COUNT;
+            g_tcrt_ctx.query_count = atoi(optarg);
         case 1:
             g_tcrt_ctx.flags |= TRCRT_SOURCEPORT;
             break;
@@ -212,6 +216,9 @@ static void dump_usage(const char *bin_name) {
     "                              default from 1), or some constant destination\n"
     "                              port for other methods (with default of 80 for\n"
     "                              \"tcp\", 53 for \"udp\", etc.)\n"
+    "  -q nqueries  --queries=nqueries\n"
+    "                              Set the number of probes per each hop. Default is\n"
+    "                              3\n"
     "  -t tos  --tos=tos           Set the TOS (IPv4 type of service) or TC (IPv6\n"
     "                              traffic class) value for outgoing packets\n"
     "  -s src_addr  --source=src_addr\n"
@@ -244,6 +251,7 @@ static void set_default_args() {
     g_tcrt_ctx.send_wait = 0;
     g_tcrt_ctx.max_ttl = 255; /* Max possible ttl */
     g_tcrt_ctx.current_ttl = 1;
+    g_tcrt_ctx.query_count = DEFAULT_PROBES_ONE_TTL;
 }
 
 static void dump_version() {
