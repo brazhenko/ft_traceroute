@@ -55,7 +55,7 @@ void initialize_context(int argc, char **argv) {
         { "sendwait",   required_argument,  NULL,   'z' },
         { "max-hops",   required_argument,  NULL,   'm' },
         { "tos",        required_argument,  NULL,   't' },
-        { "version",    required_argument,  NULL,   'V' },
+        { "version",    no_argument,        NULL,   'V' },
         { "queries",    required_argument,  NULL,   'q' },
         { "wait",       required_argument,  NULL,   'w' },
         { NULL,         0,                  NULL,    0  }
@@ -63,7 +63,7 @@ void initialize_context(int argc, char **argv) {
 
     int ch, ret;
     while ((ch = getopt_long(argc, argv,
-            "hITp:z:m:t:w:", long_opts, NULL)) != -1) {
+            "hIp:z:m:t:w:f:q:V", long_opts, NULL)) != -1) {
         switch (ch) {
         case 'f':
             g_tcrt_ctx.current_ttl = atoi(optarg);
@@ -93,7 +93,7 @@ void initialize_context(int argc, char **argv) {
         case 'w':
             g_tcrt_ctx.wait_max = atoi(optarg);
             break;
-        case 'v':
+        case 'V':
             dump_version();
             exit(EXIT_SUCCESS);
         case 'h':
@@ -157,7 +157,6 @@ static void dump_usage(const char *bin_name) {
     "Usage:\n"
     "%s "
     "[ -hIT ] "
-    "[ -i device ] "
     "[ -p port ] "
     "[ -z sendwait ] "
     "[ -m max_ttl ] "

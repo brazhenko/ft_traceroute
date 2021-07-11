@@ -46,6 +46,11 @@ int get_name_by_ipaddr(in_addr_t ip, char *host,
  */
 
 void process_trace() {
+    if (g_tcrt_ctx.current_ttl > g_tcrt_ctx.max_ttl) {
+        fprintf(stderr, "first hop out of range\n");
+        exit(EXIT_FAILURE);
+    }
+
     // Go, go, go !!!
     printf("traceroute to %s (%s), %d hops max, %d byte packets\n",
             g_tcrt_ctx.dest_name,
@@ -54,7 +59,7 @@ void process_trace() {
 
     for (
             int i = 1;
-            g_tcrt_ctx.current_ttl < g_tcrt_ctx.max_ttl;
+            g_tcrt_ctx.current_ttl <= g_tcrt_ctx.max_ttl;
             g_tcrt_ctx.current_ttl++, i++) {
 
         printf("%2d  ", i);
