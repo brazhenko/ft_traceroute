@@ -179,6 +179,7 @@ static void trcrt_handle_icmp() {
         if (icmp->type == ICMP_ECHOREPLY || icmp->type == ICMP_DEST_UNREACH) {
             g_tcrt_ctx.end_tracing = 1;
         }
+        return;
     }
 
     // Some unexpected error
