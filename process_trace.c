@@ -112,7 +112,7 @@ static void trcrt_send() {
 }
 
 static void initialize_socket() {
-    int sock, setsock = 0;
+    int sock, setsock;
 
     if (g_tcrt_ctx.flags & TRCRT_ICMP) {
         sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
@@ -172,22 +172,13 @@ static void trcrt_handle_icmp() {
     if (ret > 0) {
         ip = (struct iphdr *)buffer;
         icmp = (struct icmphdr*)(buffer + sizeof (struct iphdr));
-        g_tcrt_ctx.answer_ip = ip->saddr;
 
-        switch (icmp->type)
-        {
-        case ICMP_ECHOREPLY:
-            g_tcrt_ctx.rc = HAVEANSWER;
+        g_tcrt_ctx.answer_ip = ip->saddr;
+        g_tcrt_ctx.icmp_rpl_type = icmp->type;
+        g_tcrt_ctx.icmp_rpl_code = icmp->code;
+        if (icmp->type == ICMP_ECHOREPLY || icmp->type == ICMP_DEST_UNREACH) {
             g_tcrt_ctx.end_tracing = 1;
-            break;
-        case ICMP_TIME_EXCEEDED:
-            g_tcrt_ctx.rc = TTLEXCEEDED;
-            break;
-        default:
-            g_tcrt_ctx.rc = UNKNOWN;
-            break;
         }
-        return;
     }
 
     // Some unexpected error
@@ -197,7 +188,7 @@ static void trcrt_handle_icmp() {
     }
 
     // Reading interrupted by signal, equivalent to (errno==EINTR)
-    g_tcrt_ctx.rc = NOANSWER;
+    g_tcrt_ctx.icmp_rpl_type = -1;
 }
 
 static void trcrt_handle_udp() {
@@ -235,27 +226,11 @@ static void trcrt_handle_udp() {
         if (cmsg->cmsg_level == SOL_IP && cmsg->cmsg_type == IP_RECVERR) {
             sock_err = (struct sock_extended_err *)CMSG_DATA(cmsg);
 
-            switch (sock_err->ee_type)
-            {
-            case ICMP_NET_UNREACH:
-                fprintf(stderr, "Network Unreachable Error\n");
-                break;
-            case ICMP_HOST_UNREACH:
-                fprintf(stderr, "Host Unreachable Error\n");
-                break;
-            case ICMP_NET_UNR_TOS:
-                g_tcrt_ctx.rc = TTLEXCEEDED;
-                break;
-            case ICMP_UNREACH_PORT:
-                g_tcrt_ctx.rc = HAVEANSWER;
+            g_tcrt_ctx.icmp_rpl_type = sock_err->ee_type;
+            g_tcrt_ctx.icmp_rpl_code = sock_err->ee_code;
+            if (sock_err->ee_type == ICMP_ECHOREPLY || sock_err->ee_code == ICMP_DEST_UNREACH) {
                 g_tcrt_ctx.end_tracing = 1;
-                break;
-            default:
-                g_tcrt_ctx.rc = UNKNOWN;
             }
-            /* Handle all other cases. Find more errors :
-             * http://lxr.linux.no/linux+v3.5/include/linux/icmp.h#L39
-             */
 
             // Get sender's IP
             g_tcrt_ctx.answer_ip = ((struct sockaddr_in*)SO_EE_OFFENDER(sock_err))->sin_addr.s_addr;
@@ -267,7 +242,7 @@ static void trcrt_handle_udp() {
         return;
     }
 
-    g_tcrt_ctx.rc = NOANSWER;
+    g_tcrt_ctx.icmp_rpl_type = -1;
 }
 
 static void trcrt_print_result() {
@@ -297,16 +272,39 @@ static void trcrt_print_result() {
         g_tcrt_ctx.last_printed_ip = g_tcrt_ctx.answer_ip;
     }
 
-    switch (g_tcrt_ctx.rc)
+    switch (g_tcrt_ctx.icmp_rpl_type)
     {
-    case HAVEANSWER:
-    case TTLEXCEEDED:
+    case ICMP_ECHOREPLY:
+    case ICMP_DEST_UNREACH:
+    case ICMP_TIME_EXCEEDED:
         printf("%ld.%03ld ms  ", rtt / 1000, rtt % 1000);
         break;
-    default:
+    case -1:
         printf("*  ");
         break;
+    default:
+        printf("#  ");
     }
+
+    if (g_tcrt_ctx.icmp_rpl_type ==  ICMP_DEST_UNREACH)
+        switch (g_tcrt_ctx.icmp_rpl_code)
+        {
+        case ICMP_NET_UNREACH:
+            printf("!N  ");
+            break;
+        case ICMP_HOST_UNREACH:
+            printf("!H  ");
+            break;
+        case ICMP_PROT_UNREACH:
+            printf("!P  ");
+            break;
+        case ICMP_PORT_UNREACH:
+            break; // Default case, no reaction
+        case ICMP_NET_ANO:
+        default:
+            printf("!X  ");
+            break;
+        }
     fflush(stdout);
 }
 

@@ -31,7 +31,8 @@ typedef struct {
     // Dynamic data
     uint8_t current_ttl;
     uint16_t dest_port;
-    enum ret_code rc;
+    int icmp_rpl_type;
+    int icmp_rpl_code;
     int end_tracing;
     in_addr_t answer_ip;
     struct timeval time_sent;
@@ -57,11 +58,6 @@ extern traceroute_context_t g_tcrt_ctx;
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
      _a > _b ? _a : _b; })
-
-#define min(a,b) \
-   ({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-     _a < _b ? _a : _b; })
 
 void initialize_context(int argc, char **argv);
 

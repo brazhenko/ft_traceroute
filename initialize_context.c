@@ -164,7 +164,6 @@ static void dump_usage(const char *bin_name) {
     "  -f first_ttl  --first=first_ttl\n"
     "                              Start from the first_ttl hop (instead from 1)\n"
     "  -I  --icmp                  Use ICMP ECHO for tracerouting\n"
-    "  -T  --tcp                   Use TCP SYN for tracerouting (default port is 80)\n"
     "  -m max_ttl  --max-hops=max_ttl\n"
     "                              Set the max number of hops (max TTL to be\n"
     "                              reached). Default is 30\n"
@@ -193,7 +192,7 @@ static void dump_usage(const char *bin_name) {
     "+     host          The host to traceroute to\n"
     "      packetlen     The full packet length (default is the length of an IP\n"
     "                    header plus 40). Can be ignored or increased to a minimal\n"
-    "                    allowed value", bin_name);
+    "                    allowed value\n", bin_name);
 }
 
 static void set_default_args() {
@@ -217,6 +216,3 @@ static void set_default_args() {
 static void dump_version() {
     printf("%s built on %s at %s\n", "ft_tracroute v0.0.1", __DATE__, __TIME__);
 }
-
-
-//recvmsg(3, {msg_name={sa_family=AF_INET, sin_port=htons(33434), sin_addr=inet_addr("87.250.250.242")}, msg_namelen=28->16, msg_iov=[{iov_base="@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_", iov_len=1280}], msg_iovlen=1, msg_control=[{cmsg_len=32, cmsg_level=SOL_SOCKET, cmsg_type=SO_TIMESTAMP_OLD, cmsg_data={tv_sec=1625845723, tv_usec=934227}}, {cmsg_len=20, cmsg_level=SOL_IP, cmsg_type=IP_TTL, cmsg_data=[64]}, {cmsg_len=48, cmsg_level=SOL_IP, cmsg_type=IP_RECVERR, cmsg_data={ee_errno=113, ee_origin=2, ee_type=11, ee_code=0, ee_info=0, ee_data=0, offender={sa_family=AF_INET, sin_port=htons(0), sin_addr=inet_addr("172.17.0.1")}}}], msg_controllen=104, msg_flags=MSG_ERRQUEUE}, MSG_ERRQUEUE) = 32

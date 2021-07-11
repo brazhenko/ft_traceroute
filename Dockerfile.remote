@@ -41,7 +41,7 @@ RUN ( \
     echo 'PasswordAuthentication yes'; \
     echo 'Subsystem sftp /usr/lib/openssh/sftp-server'; \
   ) > /etc/ssh/sshd_config_test_clion \
-  && mkdir /run/sshd
+  && mkdir /run/sshd/etc/init.d/docker star
 
 RUN useradd -m user \
   && yes password | passwd user

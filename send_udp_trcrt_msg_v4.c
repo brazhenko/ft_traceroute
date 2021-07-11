@@ -3,7 +3,6 @@
 #include <string.h>
 #include <netinet/ip_icmp.h>
 #include <netdb.h>
-#include <fcntl.h>
 
 /*
  * Function: send_udp_trcrt_msg()

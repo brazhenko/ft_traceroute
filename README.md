@@ -96,6 +96,7 @@ while (true) {
     // provided by socket library. Check
     // process_trace.c trcrt_handle_udp() function
     // for more steps.
+    break;    
 }
 ```
 
