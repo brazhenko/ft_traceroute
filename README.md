@@ -110,9 +110,7 @@ Original `traceroute` has a _unique_ behaviour for each situation.
 I tried to reproduce some of them.
 
 Let's imagine we have an _intermediate_ (in fact, it will be a destination)
-router.
-
-Each time it has a special configuration of firewall.
+router and each time it has a special configuration of firewall.
 We want to find the behaviour of the original traceroute.
 
 `NB` 33434 if the start port which traceroute uses. It is increased
