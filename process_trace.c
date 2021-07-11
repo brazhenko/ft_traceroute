@@ -85,7 +85,7 @@ static void trcrt_send() {
                 g_tcrt_ctx.current_ttl,
                 ICMP_ECHO,
                 g_tcrt_ctx.dest_port /* according to man */,
-                max(g_tcrt_ctx.pack_len - sizeof (struct iphdr) - sizeof (struct icmphdr), 0),
+                max(g_tcrt_ctx.pack_len - (int)sizeof (struct iphdr) - (int)sizeof (struct icmphdr), 0),
                 g_tcrt_ctx.source_ip,
                 g_tcrt_ctx.dest_ip);
     }
@@ -94,7 +94,7 @@ static void trcrt_send() {
                 g_tcrt_ctx.sock,
                 g_tcrt_ctx.tos,
                 g_tcrt_ctx.current_ttl,
-                max(g_tcrt_ctx.pack_len - sizeof (struct iphdr) - sizeof (struct udphdr), 0),
+                max(g_tcrt_ctx.pack_len - (int)sizeof (struct iphdr) - (int)sizeof (struct udphdr), 0),
                 g_tcrt_ctx.dest_ip,
                 g_tcrt_ctx.dest_port);
     }
