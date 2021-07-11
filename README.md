@@ -178,5 +178,5 @@ I should notice that iptables configuration covers only a part of
 ICMP-ICMP_DEST_UNREACH codes. For more exploration you need to advise another
 method.
 
-My implementation covers only this part of error_codes, check `trcrt_print_result()`
+My implementation covers only this part of error codes, check `trcrt_print_result()`
 in [source](process_trace.c).
