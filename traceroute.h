@@ -6,14 +6,6 @@
 # include <netinet/in.h>
 #include <netdb.h>
 
-enum ret_code {
-    NOANSWER=1,
-    HAVEANSWER,
-    TTLEXCEEDED,
-    LOST,
-    UNKNOWN
-};
-
 typedef struct {
     int sock;
     uint64_t flags;
