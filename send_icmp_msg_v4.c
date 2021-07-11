@@ -96,14 +96,13 @@ int send_icmp_msg_v4(
     icmp_header->icmp_cksum = 0;
     icmp_header->icmp_cksum = ipv4_icmp_checksum((uint16_t *)icmp_header,
             (icmp_hdr_size + payload_size) / 2
-                    + ((icmp_hdr_size + payload_size) & 1));
+            + ((icmp_hdr_size + payload_size) & 1));
 
     // Actually send our message
     struct sockaddr_in dest;
     memset(&dest, 0x0, sizeof dest);
     dest.sin_family = AF_INET;
     dest.sin_addr.s_addr = dest_ip;
-
     ssize_t ret = sendto(
             sock,
             message,

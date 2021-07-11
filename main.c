@@ -2,6 +2,11 @@
 
 void process_trace();
 
+/*
+ * Program: ft_traceroute
+ *
+ */
+
 int main(int ac, char **av)
 {
     initialize_context(ac, av);
