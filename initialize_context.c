@@ -17,7 +17,6 @@ traceroute_context_t g_tcrt_ctx;
 static void dump_usage(const char *bin_name);
 static void dump_version();
 static void set_default_args();
-static void initialize_socket();
 static void initialize_signals();
 
 /*
@@ -139,7 +138,8 @@ void initialize_context(int argc, char **argv) {
     initialize_signals();
 }
 
-static void alarm_handler(int a) {
+static void alarm_handler(int unused) {
+    (void)unused;
     g_tcrt_ctx.try_read = 0;
 }
 
