@@ -30,6 +30,23 @@ make
 ```bash
 ./ft_traceroute google.com
 ```
+```
+traceroute to google.com (173.194.221.113), 30 hops max, 60 byte packets
+ 1  172.17.0.1 (172.17.0.1)  0.007 ms  0.006 ms  0.006 ms  
+ 2  192.168.20.1 (192.168.20.1)  1.475 ms  1.214 ms  1.414 ms  
+ 3  192.168.2.13 (192.168.2.13)  0.625 ms  0.511 ms  0.530 ms  
+ 4  195-133-239-81.in-addr.netone.ru (195.133.239.81)  1.735 ms  1.905 ms  1.782 ms  
+ 5  188-65-128-226.in-addr.netone.ru (188.65.128.226)  5.395 ms  4.745 ms  4.352 ms  
+ 6  188-65-128-225.in-addr.netone.ru (188.65.128.225)  1.419 ms  1.043 ms  1.014 ms  
+ 7  92.242.39.224 (92.242.39.224)  1.732 ms  2.718 ms  2.557 ms  
+ 8  10.200.16.216 (10.200.16.216)  1.814 ms  10.200.16.128 (10.200.16.128)  1.947 ms  10.200.16.216 (10.200.16.216)  1.741 ms  
+ 9  10.200.16.192 (10.200.16.192)  1.868 ms  1.752 ms  10.200.16.194 (10.200.16.194)  1.955 ms  
+10  10.200.16.154 (10.200.16.154)  2.010 ms  10.200.16.53 (10.200.16.53)  1.881 ms  1.870 ms  
+11  95.181.206.197 (95.181.206.197)  1.632 ms  1.925 ms  1.762 ms  
+12  108.170.250.83 (108.170.250.83)  1.815 ms  3.397 ms  108.170.250.66 (108.170.250.66)  3.888 ms  
+13  142.251.49.24 (142.251.49.24)  14.133 ms  *  *
+14  ...
+```
 
 
 ### Available features
@@ -62,7 +79,7 @@ will be commented.
 // Create a UDP socket
 sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
 // Response messages will be not UDP but ICMP so we need some configuration
-setsock = setsockopt(sock, SOL_IP, IP_RECVERR, (int[1]){ 1 }, sizeof(int));
+setsockopt(sock, SOL_IP, IP_RECVERR, (int[1]){ 1 }, sizeof(int));
 
 // Check intermediate stages in send_udp_trcrt_msg_v4.c
 ...
