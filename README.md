@@ -100,7 +100,83 @@ while (true) {
 }
 ```
 
-### Links
+#### Reply messages
+Trace-routing messages are usually answered with an ICMP message 
+with a particular pair of icmp.type & icmp.code.
+If you are not common with it yet, discover
+[wikipedia](https://en.wikipedia.org/wiki/Internet_Control_Message_Protocol).
 
-* https://habr.com/ru/post/281272/
-* https://habr.com/ru/post/129627/
+Original `traceroute` has a _unique_ behaviour for each situation.
+I tried to reproduce some of them.
+
+Let's imagine we have an _intermediate_ (in fact, it will be a destination)
+router.
+
+Each time it has a special configuration of firewall.
+We want to find the behaviour of the original traceroute.
+
+`NB` 33434 if the start port which traceroute uses. It is increased
+for each probe. Fill free to play more with iptables configuration.
+
+```bash
+# server-side
+iptables -I INPUT -p udp --dport 33434 -j REJECT --reject-with icmp-net-unreachable
+
+# client-side
+traceroute 172.17.0.3
+
+traceroute to 172.17.0.3 (172.17.0.3), 30 hops max, 60 byte packets
+ 1  172.17.0.3 (172.17.0.3)  0.824 ms !N  0.710 ms  0.713 ms
+```
+```bash
+# server-side
+iptables -I INPUT -p udp --dport 33434 -j REJECT --reject-with icmp-host-unreachable
+
+# client-side
+traceroute 172.17.0.3
+
+traceroute to 172.17.0.3 (172.17.0.3), 30 hops max, 60 byte packets
+ 1  172.17.0.3 (172.17.0.3)  1.784 ms !H  0.062 ms  0.045 ms
+```
+
+```bash
+# server-side
+iptables -I INPUT -p udp --dport 33434 -j REJECT --reject-with icmp-proto-unreachable
+
+# client-side
+traceroute 172.17.0.3
+
+traceroute to 172.17.0.3 (172.17.0.3), 30 hops max, 60 byte packets
+ 1  172.17.0.3 (172.17.0.3)  0.079 ms !P  0.062 ms  0.021 ms
+```
+
+```bash
+# server-side
+iptables -I INPUT -p udp --dport 33434 -j REJECT --reject-with icmp-port-unreachable
+
+# client-side
+traceroute 172.17.0.3
+
+#!!! `icmp-port-unreachable` if default answer when the port is not listened.
+#!!! traceroute thinks that it is good end of tracerouting.
+traceroute to 172.17.0.3 (172.17.0.3), 30 hops max, 60 byte packets
+ 1  172.17.0.3 (172.17.0.3)  0.704 ms  0.600 ms  0.578 ms
+```
+
+```bash
+# server-side
+iptables -I INPUT -p udp --dport 33434 -j REJECT --reject-with icmp-net-prohibited
+
+# client-side
+traceroute 172.17.0.3
+
+traceroute to 172.17.0.3 (172.17.0.3), 30 hops max, 60 byte packets
+ 1  172.17.0.3 (172.17.0.3)  0.674 ms !X  0.339 ms  0.309 ms
+```
+
+I should notice that iptables configuration covers only a part of
+ICMP-ICMP_DEST_UNREACH codes. For more exploration you need to advise another
+method.
+
+My implementation covers only this part of error_codes, check `trcrt_print_result()`
+in [source](process_trace.c).
