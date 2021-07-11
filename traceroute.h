@@ -53,6 +53,7 @@ extern traceroute_context_t g_tcrt_ctx;
 # define MICROSECONDS_IN_SECOND 1000000
 # define DEFAULT_PACK_LEN 60
 # define MAX_PROBS_PER_HOP 10
+# define MAX_PACK_LEN_INPUT 1000
 
 #define max(a,b) \
    ({ __typeof__ (a) _a = (a); \

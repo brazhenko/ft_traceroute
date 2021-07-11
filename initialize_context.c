@@ -130,6 +130,10 @@ void initialize_context(int argc, char **argv) {
     // Get packet len if exists
     if (optind + 1 < argc) {
         g_tcrt_ctx.pack_len = atoi(argv[optind + 1]);
+        if (!(0 < g_tcrt_ctx.pack_len && g_tcrt_ctx.pack_len < MAX_PACK_LEN_INPUT)) {
+            fprintf(stderr, "no more than %d packet len\n", MAX_PACK_LEN_INPUT);
+            exit(EXIT_FAILURE);
+        }
     }
 
     initialize_signals();
